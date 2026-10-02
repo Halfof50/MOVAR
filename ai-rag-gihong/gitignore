@@ -1,0 +1,6 @@
+# 인덱스는 build_index.py 로 다시 만들 수 있어 저장소에 넣지 않는다
+data/index/
+__pycache__/
+*.pyc
+.env
+venv/
