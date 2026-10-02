@@ -1,0 +1,15 @@
+# Product recommendation (local RAG) dependencies
+# Lower bounds only. Pinning exact versions breaks on different Python versions.
+
+pandas>=2.0
+numpy>=1.24
+scikit-learn>=1.3
+requests>=2.31
+
+# Embedding. torch is installed together with sentence-transformers.
+sentence-transformers>=2.7
+
+# Local LLM runs on Ollama, installed separately (not a pip package).
+#   https://ollama.com
+#   ollama serve
+#   ollama pull llama3.1:8b-instruct-q4_K_M
