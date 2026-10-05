@@ -66,7 +66,11 @@ CATEGORY_QUOTA = {"shampoo": 6, "scaler": 4, "treatment": 4, "tonic": 4}
 #   '서로 다른 유형을 섞기'     → 호출 단위로 보장
 #   '개수 3~5 중 몇 개'       → 3개로 고정
 # 비교 대상이 모두 같은 유형이어서 모델은 증상 적합도만 비교하면 된다.
-CANDIDATES_PER_CATEGORY = int(os.getenv("MOVAR_CANDIDATES_PER_CATEGORY", "12"))
+# Hybrid 후보 검색
+# 기본: 임베딩 12개 + 성분 적합도 3개 = 최대 15개
+HYBRID_EMBEDDING_K = int(os.getenv("MOVAR_HYBRID_EMBEDDING_K", "12"))
+HYBRID_INGREDIENT_K = int(os.getenv("MOVAR_HYBRID_INGREDIENT_K", "3"))
+CANDIDATES_PER_CATEGORY = int(os.getenv("MOVAR_CANDIDATES_PER_CATEGORY", "15"))
 PICK_PER_CATEGORY = int(os.getenv("MOVAR_PICK_PER_CATEGORY", "3"))
 
 # 후보를 유사도 순으로 넣으면 모델이 그 순서를 정답으로 받아들이는 경향이 있다.

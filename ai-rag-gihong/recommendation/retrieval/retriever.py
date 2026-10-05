@@ -15,7 +15,10 @@
 알레르기는 별도 모듈(Allergy RAG)로 분리할 예정이고, 그전까지는 추천 경로에서 뺀다.
 """
 
-from recommendation.config import CANDIDATES_PER_CATEGORY, CATEGORY_QUOTA, TOP_K
+from recommendation.config import (
+    CANDIDATES_PER_CATEGORY, CATEGORY_QUOTA, TOP_K,
+    HYBRID_EMBEDDING_K, HYBRID_INGREDIENT_K,
+)
 from recommendation.embedding.embedding_model import get_embedder
 from recommendation.embedding.vector_store import VectorStore
 from recommendation.preprocessing.gentleness import gentleness
@@ -102,9 +105,70 @@ class Retriever:
 
         query_text = build_query(levels)
         qvec = self.embedder.encode([query_text])[0]
-        candidates = self.store.search(qvec, top_k=top_k, **filters)
+
+        # Hybrid 후보 검색
+        # 1) 임베딩 유사도 상위 12개
+        # 2) 위 12개에 없는 상품 중 성분 적합도 상위 3개 추가
+        # 3) 성분 후보가 부족하면 임베딩 다음 순위 상품으로 채운다.
+        final_k = max(1, int(top_k))
+        embedding_k = min(HYBRID_EMBEDDING_K, final_k)
+        ingredient_k = min(HYBRID_INGREDIENT_K, max(0, final_k - embedding_k))
+
+        # 성분 후보가 부족할 때 채울 수 있도록 최종 개수만큼 임베딩 검색한다.
+        embedding_all = self.store.search(qvec, top_k=final_k, **filters)
+        embedding_candidates = embedding_all[:embedding_k]
+        selected_ids = {c["product_id"] for c in embedding_candidates}
+
+        ingredient_candidates = []
+        if ingredient_k > 0 and any(levels.values()):
+            scored = []
+            exclude_ids = set(filters.get("exclude_ids") or [])
+            max_price = filters.get("max_price")
+
+            for rec in self.store.records:
+                if rec.get("category") != category:
+                    continue
+                if rec.get("product_id") in selected_ids or rec.get("product_id") in exclude_ids:
+                    continue
+
+                price = rec.get("price")
+                if max_price is not None and (price is None or price > max_price):
+                    continue
+
+                scores, _ = ingredient_scores(rec.get("ingredients", ""))
+                ingredient_fit = sum(
+                    float(scores.get(sym, 0) or 0) * float(level)
+                    for sym, level in levels.items()
+                    if level > 0
+                )
+                if ingredient_fit <= 0:
+                    continue
+
+                cand = dict(rec)
+                vec = self.store.vector_of(cand["product_id"])
+                cand["similarity"] = round(float(vec @ qvec), 4) if vec is not None else 0.0
+                cand["ingredient_fit"] = round(ingredient_fit, 4)
+                scored.append(cand)
+
+            scored.sort(key=lambda c: (-c["ingredient_fit"], -c.get("similarity", 0)))
+            ingredient_candidates = scored[:ingredient_k]
+
+        candidates = embedding_candidates + ingredient_candidates
+        selected_ids.update(c["product_id"] for c in ingredient_candidates)
+
+        # 성분 후보가 3개보다 적으면 임베딩 13위 이후로 부족한 수를 채운다.
+        if len(candidates) < final_k:
+            for cand in embedding_all[embedding_k:]:
+                if cand["product_id"] in selected_ids:
+                    continue
+                candidates.append(cand)
+                selected_ids.add(cand["product_id"])
+                if len(candidates) >= final_k:
+                    break
 
         candidates = [self._annotate(c, profile) for c in candidates]
+        for rank, c in enumerate(candidates, start=1):
+            c["retrieval_rank"] = rank
 
         return {
             "category": category,
@@ -121,7 +185,7 @@ class Retriever:
         """후보에 성분 점수를 계산해 붙인다.
 
         성분 점수는 인덱스에 저장해 두지 않고 여기서 매번 계산한다.
-        후보 12개의 전성분 문자열을 파싱하는 비용뿐이고,
+        선정된 후보의 전성분 문자열을 파싱하는 비용뿐이고,
         점수표를 수정해도 인덱스를 다시 만들 필요가 없다.
 
         알레르기는 지금 다루지 않는다.
