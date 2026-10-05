@@ -1,3 +1,67 @@
+# 실행 준비
+
+## 1. 가상환경 생성
+
+```powershell
+python -m venv venv
+```
+
+## 2. 가상환경 실행
+
+```powershell
+.\venv\Scripts\activate
+```
+
+## 3. 패키지 설치
+
+```powershell
+pip install -r recommendation/requirements.txt
+```
+
+## 4. Gemma 준비
+
+```powershell
+ollama pull gemma3:12b
+```
+
+## 5. Vector Index 생성
+
+최초 실행 또는 상품 데이터 / Embedding 관련 내용이 변경된 경우:
+
+```powershell
+python -m recommendation.build_index
+```
+
+## 6. 실행
+
+사용자 직접 입력 테스트:
+
+```powershell
+python -m recommendation.interactive_recommend
+```
+
+또는 `interactive_recommend.py`를 열고 **Run Python File** 실행.
+
+추천 서비스 단독 실행:
+
+```powershell
+python -m recommendation.service.recommendation_service
+```
+
+LLM 테스트:
+
+```powershell
+python -m recommendation.samples4 --model gemma3:12b
+```
+
+검색 단계 평가:
+
+```powershell
+python -m recommendation.evaluate
+```
+
+---
+
 # 상품 추천 — 로컬 RAG
 
 두피 분석 결과(증상 6종 × Level 0~3)를 받아 사용자에게 맞는 두피·헤어케어 상품을 추천한다.
@@ -39,14 +103,14 @@ Vision Model
         ├─ Vector Store
         │    같은 카테고리 안에서 코사인 유사도 기반 정확 탐색
         │
-        ├─ RAG 후보 Top 12
+        ├─ Hybrid 후보 검색
         │
         ├─ 가격 등 코드 기반 조건 적용
         │
         ├─ 성분 적합도 / 근거 성분 결합
         │
         ├─ Gemma 3 12B
-        │    후보 12개 각각에
+        │    후보 전체에
         │    0~100 적합도 점수 + decision_factors 부여
         │
         ├─ Python
@@ -64,7 +128,7 @@ Vision Model
 핵심 역할 분리는 다음과 같다.
 
 ```text
-RAG     = 관련 후보 검색
+RAG     = Embedding + 성분 적합도 기반 Hybrid 후보 검색
 Gemma   = 후보별 개인화 적합도 판단
 Python  = 정렬 + Top3 선정 + ID 매핑 + 검증 + 이유 생성
 DB      = 상품 정보와 성분 근거의 사실 원천
@@ -158,7 +222,7 @@ Embedding 벡터는 L2 정규화하여 사용한다.
 ```text
 코사인 유사도
     ↓
-관련 가능성이 높은 후보 Top 12 검색
+Embedding Top 12 + 성분 적합도 Top 3 → 중복 제거 후 최대 15개 후보
     ↓
 Gemma가 후보들을 다시 평가
 ```
@@ -208,7 +272,7 @@ image
 
 현재 구조에서는 Gemma가 `product_id`를 출력하지 않는다.
 
-후보 12개가 주어졌다면 다음처럼 **후보별 평가만 수행한다.**
+Hybrid 검색으로 구성된 후보가 주어졌다면 다음처럼 **후보별 평가만 수행한다.**
 
 ```json
 {
@@ -247,7 +311,7 @@ Gemma가 하지 않는 것:
 
 ---
 
-## 최종 Top3 선정
+## 최종 추천 선정
 
 Gemma가 후보 전체에 점수를 반환하면 Python이 처리한다.
 
@@ -333,172 +397,6 @@ Python Top3
 
 ---
 
-# 실행 방법
-
-## 1. Python 패키지 설치
-
-프로젝트 상위 폴더에서 실행한다.
-
-```bash
-pip install -r recommendation/requirements.txt
-```
-
----
-
-## 2. Ollama 설치 후 Gemma 3 12B 받기
-
-현재 추천 모델:
-
-```text
-gemma3:12b
-```
-
-모델 다운로드:
-
-```bash
-ollama pull gemma3:12b
-```
-
-모델 단독 실행 확인:
-
-```bash
-ollama run gemma3:12b
-```
-
-Ollama 서버가 따로 필요한 환경에서는:
-
-```bash
-ollama serve
-```
-
----
-
-## 3. Gemma 모델 설정
-
-기본 설정의 `MOVAR_LLM_MODEL`을 `gemma3:12b`로 사용한다.
-
-Windows PowerShell에서 임시 설정:
-
-```powershell
-$env:MOVAR_LLM_MODEL="gemma3:12b"
-```
-
-Windows CMD:
-
-```cmd
-set MOVAR_LLM_MODEL=gemma3:12b
-```
-
-Linux / macOS:
-
-```bash
-export MOVAR_LLM_MODEL=gemma3:12b
-```
-
----
-
-## 4. Vector Index 생성
-
-상품 데이터나 검색용 Document 구성이 바뀌었으면 인덱스를 다시 생성한다.
-
-```bash
-python -m recommendation.build_index
-```
-
-주의:
-
-Gemma 모델만 변경하는 경우에는 상품 Embedding Index를 다시 만들 필요가 없다.
-
-```text
-Embedding Model
-= jhgan/ko-sroberta-multitask
-
-추천 판단 LLM
-= gemma3:12b
-```
-
-두 모델은 서로 다른 역할이다.
-
-Embedding 모델이나 Product Document가 바뀌었을 때 인덱스를 다시 생성한다.
-
----
-
-## 5. 추천 서비스 실행
-
-```bash
-python -m recommendation.service.recommendation_service
-```
-
----
-
-## 6. Gemma 순위 판단 테스트
-
-현재 후보 평가 방식 테스트:
-
-```bash
-python -m recommendation.samples4 --model gemma3:12b
-```
-
-특정 케이스만 실행:
-
-```bash
-python -m recommendation.samples4 --model gemma3:12b --case 4
-```
-
-반복 횟수 변경:
-
-```bash
-python -m recommendation.samples4 --model gemma3:12b --repeat 5
-```
-
-LLM 없이 RAG 검색 결과만 확인:
-
-```bash
-python -m recommendation.samples4 --no-llm
-```
-
-테스트에서 확인할 핵심:
-
-```text
-1. 동일 입력 반복 시 추천 순위가 안정적인가
-2. 높은 Level 증상을 실제 판단에 반영하는가
-3. 검색순위를 그대로 복사하지 않고 후보를 비교하는가
-4. 상위 추천의 실제 성분 근거가 지나치게 약하지 않은가
-5. candidate 평가 결과가 정상적으로 반환되는가
-```
-
----
-
-## 7. 검색 단계 평가
-
-```bash
-python -m recommendation.evaluate
-```
-
-RAG 평가는 최종 추천 순위보다 **좋은 상품이 Top K 후보 안에 들어오는지**를 중심으로 본다.
-
-추후 `Top5 / Top10 / Top12 / Top15` 후보 포함률(Recall@K)을 비교해 `Top12`의 근거를 만들 수 있다.
-
----
-
-## 환경변수
-
-| 변수 | 기본값 / 권장값 |
-|---|---|
-| `MOVAR_PRODUCTS_CSV` | `data/products.csv` |
-| `MOVAR_INDEX_DIR` | `data/index` |
-| `MOVAR_EMBED_MODEL` | `jhgan/ko-sroberta-multitask` |
-| `MOVAR_CANDIDATES_PER_CATEGORY` | `12` |
-| `MOVAR_PICK_PER_CATEGORY` | `3` |
-| `MOVAR_MAX_CATEGORIES` | `3` |
-| `MOVAR_SHUFFLE_CANDIDATES` | `0` |
-| `MOVAR_DOC_PARTS` | `name,category,spec,actives,purpose` |
-| `MOVAR_TOP_K` | `15` (검색 평가용) |
-| `OLLAMA_HOST` | `http://localhost:11434` |
-| `MOVAR_LLM_MODEL` | `gemma3:12b` |
-
----
-
 # 입출력
 
 ## 입력
@@ -516,8 +414,6 @@ RAG 평가는 최종 추천 순위보다 **좋은 상품이 Top K 후보 안에 
   "user_profile": {
     "age_group": "30대",
     "wash_frequency": "하루 1회",
-    "food_allergies": ["우유", "밀"],
-    "avoid_ingredients": [],
     "max_price": 60000
   },
   "plan": ["shampoo", "tonic"]
@@ -579,7 +475,7 @@ Gemma가 직접 상품 정보를 생성하는 것이 아니라 후보 번호별 
   "categories": ["shampoo"],
   "by_category": {
     "shampoo": {
-      "candidate_count": 12,
+      "candidate_count": 15,
       "candidate_ids": [53, 18, 31],
       "recommendations": [
         {
@@ -648,7 +544,7 @@ Gemma가 직접 상품 정보를 생성하는 것이 아니라 후보 번호별 
 
 ```text
 Cosine Similarity
-→ 후보 Top12 검색
+→ Embedding Top12 + 성분 적합도 Top3 → 최대 15개 후보
 
 Gemma
 → 후보별 적합도 평가
@@ -765,7 +661,7 @@ Gemma 3 12B + 후보별 점수 방식에서 확인된 내용:
 - 검색 Top3만 기계적으로 복사하지 않고 검색 하위 후보도 재평가
 - 복합 증상에서 실제 성분 근거를 활용한 재정렬 확인
 - 일부 복합 증상에서 점수 판단 기준을 추가 개선할 여지는 있음
-- 후보 12개 전체를 평가하므로 이전 Top3 직접 선택 방식보다 응답 시간이 증가할 수 있음
+- Hybrid 후보 전체를 평가하므로 후보 수에 따라 응답 시간이 증가할 수 있음
 
 실서비스에서는 정확성과 안전성을 우선하고, 이후 필요하면 프롬프트 축소 또는 LLM 평가 후보 수 최적화를 통해 응답 시간을 줄인다.
 
