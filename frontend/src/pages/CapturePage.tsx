@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import './CapturePage.css'
+import { useNavigate } from 'react-router'
+import AnalysisLoading from '../components/AnalysisLoading'
 
-type Photo = { url: string; name: string; width: number; height: number; size: number }
+type Photo = { url: string; name: string; width: number; height: number; size: number; blob: Blob }
 const MAX_BYTES = 15 * 1024 * 1024
 
 function cameraError(error: unknown) {
@@ -14,7 +16,9 @@ function cameraError(error: unknown) {
   return '카메라 연결에 실패했어요. 장치와 브라우저 설정을 확인하고 다시 시도해주세요.'
 }
 
-export default function CapturePage() {
+export default function CapturePage({ onAnalysisComplete }: { onAnalysisComplete: (blob: Blob, name: string) => void }) {
+  const navigate = useNavigate()
+  const [analyzing, setAnalyzing] = useState(false)
   const video = useRef<HTMLVideoElement>(null)
   const stream = useRef<MediaStream | null>(null)
   const photoUrl = useRef<string | null>(null)
@@ -27,6 +31,11 @@ export default function CapturePage() {
   const [busy, setBusy] = useState(false)
   const [photo, setPhoto] = useState<Photo | null>(null)
   const [error, setError] = useState('')
+  const completeAnalysis = useCallback(() => {
+    if (!photo) return
+    onAnalysisComplete(photo.blob, photo.name)
+    navigate('/results')
+  }, [navigate, onAnalysisComplete, photo])
 
   function releaseStream() {
     stream.current?.getTracks().forEach(track => track.stop())
@@ -119,7 +128,7 @@ export default function CapturePage() {
       if (!img.naturalWidth || !img.naturalHeight) throw new Error('empty image')
       if (photoUrl.current) URL.revokeObjectURL(photoUrl.current)
       photoUrl.current = url
-      setPhoto({ url, name, width: img.naturalWidth, height: img.naturalHeight, size: blob.size })
+      setPhoto({ url, name, width: img.naturalWidth, height: img.naturalHeight, size: blob.size, blob })
       releaseStream()
       setActive(false)
       setReady(false)
@@ -176,11 +185,15 @@ export default function CapturePage() {
     setError('')
   }
 
+  if (analyzing && photo) {
+    return <AnalysisLoading imageUrl={photo.url} onCancel={() => setAnalyzing(false)} onComplete={completeAnalysis} />
+  }
+
   return (
     <div className="stack capture-page">
       <section className="page-heading">
         <p className="eyebrow">SCALP CAPTURE</p>
-        <h1>나의 두피를 확인해 보아요</h1>
+        <h1>나의 두피를 담아보세요</h1>
         <p>카메라로 촬영하거나, 저장된 두피 사진을 선택하세요.</p>
       </section>
       {error && <div className="capture-error" role="alert">{error}</div>}
@@ -211,17 +224,27 @@ export default function CapturePage() {
           <div className="photo-stage">
             {photo ? <img src={photo.url} alt="촬영하거나 선택한 두피 사진" /> : <div className="camera-empty"><span aria-hidden="true">＋</span><strong>사진이 이곳에 표시돼요</strong><p>촬영한 사진 또는 선택한 이미지를 확인하세요.</p></div>}
           </div>
-          {photo && <p className="photo-meta">{photo.name}<br />{photo.width} × {photo.height}px · {(photo.size / 1024 / 1024).toFixed(2)}MB</p>}
           <label className="file-label" htmlFor="scalp-file">저장된 이미지 선택</label>
           <input id="scalp-file" type="file" accept="image/jpeg,image/png,image/webp" onChange={selectFile} disabled={busy} />
           <p className="capture-hint">JPG · PNG · WebP / 최대 15MB</p>
-          {photo && <div className="capture-actions"><a className="button" href={photo.url} download={photo.name}>사진 다운로드</a><button className="button capture-secondary" onClick={removePhoto} disabled={busy}>사진 지우기</button></div>}
-          <p className="capture-hint" aria-live="polite">{photo ? '사진이 준비됐어요. 다시 촬영하거나 다른 이미지를 선택해 바꿀 수 있어요.' : '사진을 촬영하거나 이미지를 선택해주세요.'}</p>
+          <p className="capture-hint">촬영하거나 선택한 사진을 확인한 뒤, 아래의 분석 시작을 눌러주세요.</p>
         </section>
       </div>
+      <section className="capture-submit" aria-label="선택한 사진 분석">
+        <div className="capture-selection" aria-live="polite">
+          <p className="capture-selected-name" title={photo?.name}>{photo ? photo.name : '사진을 촬영하거나 이미지를 선택해주세요.'}</p>
+          <p className="capture-selected-meta">{photo ? `${photo.width} × ${photo.height}px · ${(photo.size / 1024 / 1024).toFixed(2)}MB` : '사진이 준비되면 분석을 시작할 수 있어요.'}</p>
+        </div>
+        <button className="button capture-analyze" disabled={!photo || busy} onClick={() => { if (!photo || busy) return; stopCamera(); setAnalyzing(true) }}>분석 시작</button>
+        <p className="capture-hint">현재는 실제 AI 분석이 아닌 로딩 화면 데모입니다.</p>
+        <div className="capture-photo-tools" style={{ visibility: photo ? 'visible' : 'hidden' }}>
+          <a className="text-link" href={photo?.url} download={photo?.name} tabIndex={photo ? 0 : -1}>사진 다운로드</a>
+          <button className="capture-remove" onClick={removePhoto} disabled={!photo || busy}>사진 지우기</button>
+        </div>
+      </section>
       <section className="notice capture-notice">
-        <strong>촬영·이미지 선택 단계까지 사용할 수 있어요.</strong>
-        <p>AI 분석은 아직 연결되지 않았어요. 사진은 서버로 전송되지 않으며, 페이지를 나가거나 새로고침하면 사라져요. 보관하려면 사진을 다운로드해주세요.</p>
+        <strong>촬영·이미지 선택과 분석 로딩 화면을 체험할 수 있어요.</strong>
+        <p>AI 분석은 아직 연결되지 않았어요. 사진은 서버로 전송되지 않으며, 분석한 사진은 결과 화면에서도 확인할 수 있으며, 새로고침하면 사라져요. 보관하려면 사진을 다운로드해주세요.</p>
         <p>USB 전자현미경이 카메라 목록에 나타나지 않으면 전용 프로그램으로 촬영한 사진을 선택해주세요.</p>
       </section>
     </div>

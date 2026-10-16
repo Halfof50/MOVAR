@@ -1,3 +1,6 @@
+import { useCallback, useEffect, useRef, useState } from 'react'
+import ResultsPage from './pages/ResultsPage'
+import type { AnalysisPhoto } from './data/scalpResults'
 import { BrowserRouter, Link, Route, Routes } from 'react-router'
 import AppLayout from './layouts/AppLayout'
 import HomePage from './pages/HomePage'
@@ -7,6 +10,17 @@ import HospitalsPage from './pages/HospitalsPage'
 import ComingSoonPage from './pages/ComingSoonPage'
 
 export default function App() {
+  const [resultPhoto, setResultPhoto] = useState<AnalysisPhoto | null>(null)
+  const resultUrl = useRef<string | null>(null)
+  const completeAnalysis = useCallback((blob: Blob, name: string) => {
+    const url = URL.createObjectURL(blob)
+    if (resultUrl.current) URL.revokeObjectURL(resultUrl.current)
+    resultUrl.current = url
+    setResultPhoto({ url, name })
+  }, [])
+  useEffect(() => () => {
+    if (resultUrl.current) URL.revokeObjectURL(resultUrl.current)
+  }, [])
   return (
     <BrowserRouter>
       <Routes>
@@ -14,16 +28,8 @@ export default function App() {
           <Route index element={<HomePage />} />
           <Route path="login" element={<LoginPage />} />
           <Route path="hospitals" element={<HospitalsPage />} />
-          <Route path="capture" element={<CapturePage />} />
-          <Route
-            path="results"
-            element={
-              <ComingSoonPage
-                title="분석 결과"
-                description="두피 사진의 분석 결과를 확인할 공간이에요."
-              />
-            }
-          />
+          <Route path="capture" element={<CapturePage onAnalysisComplete={completeAnalysis} />} />
+          <Route path="results" element={<ResultsPage photo={resultPhoto} />} />
           <Route
             path="care"
             element={
