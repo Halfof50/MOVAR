@@ -1,6 +1,7 @@
 import { BrowserRouter, Link, Route, Routes } from 'react-router'
 import AppLayout from './layouts/AppLayout'
 import HomePage from './pages/HomePage'
+import CapturePage from './pages/CapturePage'
 import LoginPage from './pages/LoginPage'
 import HospitalsPage from './pages/HospitalsPage'
 import ComingSoonPage from './pages/ComingSoonPage'
@@ -13,15 +14,7 @@ export default function App() {
           <Route index element={<HomePage />} />
           <Route path="login" element={<LoginPage />} />
           <Route path="hospitals" element={<HospitalsPage />} />
-          <Route
-            path="capture"
-            element={
-              <ComingSoonPage
-                title="두피 촬영"
-                description="두피 사진 촬영과 이미지 선택 기능을 준비하고 있어요."
-              />
-            }
-          />
+          <Route path="capture" element={<CapturePage />} />
           <Route
             path="results"
             element={

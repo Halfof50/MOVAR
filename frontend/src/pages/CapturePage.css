@@ -1,0 +1,29 @@
+.capture-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.capture-panel { min-width: 0; }
+.capture-title { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 16px; }
+.capture-title h2 { margin: 0; }
+.camera-stage, .photo-stage { aspect-ratio: 4 / 3; display: grid; place-items: center; border-radius: 12px; overflow: hidden; background: #edf3f8; }
+.camera-stage { background: #102631; color: #fff; }
+.camera-stage video, .photo-stage img { width: 100%; height: 100%; object-fit: contain; min-height: 0; }
+.camera-stage video[hidden] { display: none; }
+.camera-empty { text-align: center; padding: 20px; }
+.camera-empty > span { display: block; font-size: 3rem; color: #91b82e; }
+.camera-empty p { font-size: .85rem; margin: 8px 0 0; }
+.camera-stage p { color: #becfd8; }
+.device-label, .file-label { display: block; margin: 18px 0 8px; font-size: .9rem; font-weight: 700; }
+.device-row { display: flex; gap: 8px; }
+.device-row select { min-width: 0; flex: 1; border: 1px solid #cbd8e2; border-radius: 10px; padding: 10px; background: white; color: #0d1938; font: inherit; }
+.capture-page input[type=file] { width: 100%; font-size: .85rem; }
+.capture-page input::file-selector-button { border: 0; border-radius: 10px; padding: 12px; margin-right: 10px; background: #e8f0f5; color: #203343; cursor: pointer; font: inherit; }
+.capture-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+.capture-secondary { background: #edf3f8; color: #203343; }
+.capture-secondary:hover { background: #dfe9f0; }
+.capture-page button:disabled { opacity: .5; cursor: not-allowed; }
+.capture-page select:focus-visible, .capture-page input:focus-visible { outline: 3px solid #287abe; outline-offset: 3px; }
+.capture-hint { font-size: .8rem; margin: 12px 0 0; }
+.photo-meta { overflow-wrap: anywhere; font-size: .8rem; margin: 12px 0; }
+.capture-error { padding: 16px; border: 1px solid #edb6ae; background: #fff2ef; color: #8b3026; border-radius: 12px; }
+.capture-notice { margin: 0; }
+.capture-notice p { margin: 6px 0 0; font-size: .85rem; }
+@media (max-width: 1100px) { .capture-grid { grid-template-columns: 1fr; } }
+@media (max-width: 480px) { .device-row { flex-direction: column; } .capture-title { align-items: flex-start; } .capture-title .badge { flex-shrink: 0; } }
