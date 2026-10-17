@@ -1,0 +1,16 @@
+.haircare-recommendations .haircare-caption { margin: 6px 0 18px; color: #66798a; font-size: 13px; }
+.haircare-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding: 0; margin: 0; list-style: none; }
+.haircare-item { min-width: 0; display: flex; flex-direction: column; padding: 16px; border: 1px solid #dce5e1; border-radius: 14px; background: #fff; overflow: hidden; }
+.haircare-image { height: 160px; display: grid; place-items: center; padding: 8px; border-radius: 8px; background: #fff; overflow: hidden; }
+.haircare-image img { width: 100%; height: 100%; object-fit: contain; min-height: 0; }
+.haircare-image span { color: #697b78; font-size: 13px; text-align: center; }
+.haircare-info { display: flex; flex-direction: column; flex: 1; min-width: 0; padding-top: 16px; }
+.haircare-brand { color: #6b7280; font-size: 13px; font-weight: 600; line-height: 1.5; text-align: center; overflow-wrap: anywhere; }
+.haircare-recommendations .haircare-name { width: 100%; min-width: 0; margin: 7px 0 14px; font-size: 15px; font-weight: 400; line-height: 1.55; text-align: center; white-space: normal; word-break: keep-all; overflow-wrap: anywhere; }
+.haircare-info strong { margin-top: auto; font-size: 18px; color: #243e38; text-align: center; }
+.haircare-info a { box-sizing: border-box; margin-top: 18px; display: flex; width: 100%; min-height: 46px; justify-content: center; align-items: center; border: 1px solid #286351; border-radius: 6px; background: #286351; color: #fff; font-size: 15px; font-weight: 600; text-decoration: none; }
+.haircare-info a:hover { background: #1d4d3e; border-color: #1d4d3e; }
+.haircare-info a:focus-visible { outline: 2px solid #286351; outline-offset: 3px; }
+.haircare-recommendations .haircare-footnote { margin: 14px 0 0; font-size: 12px; color: #66798a; line-height: 1.6; }
+.haircare-message { padding: 24px 0; color: #66798a; font-size: 14px; }
+@media (max-width: 380px) { .haircare-list { grid-template-columns: 1fr; } }

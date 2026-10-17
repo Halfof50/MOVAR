@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { useAccount, errorMessage } from '../account/AccountContext'
 import { Link, NavLink, Outlet } from 'react-router'
 
 const menus = [
@@ -5,10 +7,14 @@ const menus = [
   { path: '/capture', label: '두피 촬영', icon: '◎' },
   { path: '/results', label: '분석 결과', icon: '▥' },
   { path: '/care', label: '맞춤 케어', icon: '♧' },
-  { path: '/history', label: '변화 기록', icon: '▦' },
 ]
 
 export default function AppLayout() {
+  const { user, logout } = useAccount()
+  const [error, setError] = useState('')
+  async function signOut() {
+    try { await logout() } catch(e) { setError(errorMessage(e)) }
+  }
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -37,8 +43,9 @@ export default function AppLayout() {
         <header className="header">
           <span>나의 두피 케어</span>
           <div className="account">
-            <span className="badge">게스트</span>
-            <Link className="text-link" to="/login">로그인</Link>
+            <span className="badge">{user ? `${user.name} · 데모` : '게스트'}</span>
+            {user ? <><Link className="text-link" to="/mypage">마이페이지</Link><button type="button" className="text-link" onClick={signOut}>로그아웃</button></> : <Link className="text-link" to="/login">로그인</Link>}
+            {error && <span role="alert">{error}</span>}
           </div>
         </header>
 

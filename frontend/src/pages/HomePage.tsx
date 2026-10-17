@@ -1,3 +1,7 @@
+import { useAccount } from '../account/AccountContext'
+import { getCareSummary } from '../services/careSummary'
+import { demoScalpResults, severityLabels } from '../data/scalpResults'
+import ProductRecommendations from '../components/ProductRecommendations'
 import { Link } from 'react-router'
 
 const steps = [
@@ -8,6 +12,9 @@ const steps = [
 ]
 
 export default function HomePage() {
+  const { user, records, historyError } = useAccount()
+  const summary = getCareSummary(records)
+  const latest = records[0]
   return (
     <div className="stack">
       <section className="page-heading">
@@ -30,38 +37,22 @@ export default function HomePage() {
 
         <section className="card status-card">
           <h2>최근 두피 상태</h2>
-          <div className="status-overview">
-            <div className="score-ring" aria-label="케어 지수 없음">
-              <strong>—</strong>
-              <span>케어 지수</span>
-            </div>
-            <div>
-              <h3>아직 분석 기록이 없어요</h3>
-              <p>두피 사진을 분석하면<br />이곳에서 상태를 확인할 수 있어요.</p>
-            </div>
-          </div>
-          <div className="status-metrics">
-            {['유분', '각질', '붉은기'].map((name) => (
-              <div key={name}>
-                <span>{name}</span>
-                <strong>분석 전</strong>
-                <div className="metric-track" />
-              </div>
-            ))}
-          </div>
-          <Link className="result-link" to="/results">결과 보기 →</Link>
+          {historyError ? <p role="alert">기록을 불러오지 못했어요. 마이페이지에서 다시 시도해주세요.</p> : latest ? <>
+            <p>{new Date(latest.createdAt).toLocaleString('ko-KR')} <span className="badge">예시 결과</span></p>
+            <div className="history-scores">{latest.scores.map(score => <span key={score.id} className={`severity-${score.level}`}>{demoScalpResults.find(item => item.id === score.id)?.name}<strong>{severityLabels[score.level]}</strong></span>)}</div>
+            <Link className="result-link" to={`/history/${latest.id}`}>최근 결과 보기 →</Link>
+          </> : <><div className="status-overview"><div><h3>아직 저장한 분석 기록이 없어요</h3><p>{user ? '사진을 분석하면 마이페이지에 기록돼요.' : '로그인하면 분석 기록을 모아볼 수 있어요.'}</p></div></div><Link className="result-link" to={user ? '/capture' : '/login'}>{user ? '분석 시작하기' : '로그인하기'} →</Link></>}
+
         </section>
 
-        <section className="card product-card">
-          <h2>헤어케어 상품 추천</h2>
-          <div className="product-empty">준비 중</div>
-        </section>
+        <ProductRecommendations />
 
         <section className="card care-card">
           <div>
             <p className="eyebrow">MOVAR AI 에이전트</p>
-            <h2>분석에서 케어까지, 함께.</h2>
-            <p>나의 고민과 생활 습관을 반영한<br />맞춤 케어를 준비하고 있어요.</p>
+            <h2>{summary && !historyError ? `${user?.name}님의 맞춤 케어` : '기록에서 시작하는 맞춤 케어'}</h2>
+            <p>{historyError ? '기록을 다시 불러온 뒤 확인해주세요.' : summary ? `최근 ${summary.count}건에서 ${summary.priorities.map(p => p.name).join(' · ')} 항목을 살펴봐요.` : user ? '첫 분석을 저장하면 케어 데모가 시작돼요.' : '로그인하고 분석 기록을 쌓아보세요.'}</p>
+            {summary && <p className="account-small">예시 기록 기반 · 케어 데모</p>}
             <Link className="button" to="/care">맞춤 케어 확인하기 →</Link>
           </div>
           <div className="agent-art" aria-hidden="true">
