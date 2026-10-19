@@ -1,0 +1,1 @@
+"""MOVAR FastAPI inference package."""
