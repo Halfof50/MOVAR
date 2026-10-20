@@ -1,22 +1,28 @@
 # MOVAR 백엔드
 
 Python + FastAPI + Uvicorn으로 구성한 개발 환경입니다.
-서버 상태 확인, Supabase 연결 확인, 제품 목록 조회 API를 제공합니다.
-회원 인증, 이미지 업로드, AI·LLM·추천 연동 및 배포는 아직 구현하지 않았습니다.
+서버 상태 확인, Supabase 연결 확인, 제품 목록 조회, 로그인 토큰 검증, 두피 사진 분석(이미지 모델 서버 연동),
+제품 추천(추천 모델 서버 연동), LLM 리포트 생성, 주변 병원 검색 API를 제공합니다.
+사용자 데이터 저장(문진·분석·리포트), 엔드포인트별 로그인 검사, 배포는 아직 구현하지 않았습니다.
+`mock_ai.py`는 `POST /reports/mock`의 흐름 확인용 가짜 값입니다.
 
 ## 최초 설치 (Windows PowerShell / Python 3.12)
 
-VS Code에서 터미널을 열고 실행합니다.
+VS Code에서 터미널을 열고 실행합니다. [uv](https://docs.astral.sh/uv/)가 필요합니다.
 
 ```powershell
-cd C:\2026\MOVAR\backend
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.lock.txt
+cd <저장소 경로>\backend
+uv venv
+uv pip install -r requirements.txt
 ```
 
 다른 경로에 저장소를 받았다면 해당 저장소의 `backend` 폴더로 이동하세요.
 가상환경을 활성화하지 않고 전용 Python을 직접 사용하므로 PowerShell 실행 정책을 변경할 필요가 없습니다.
-`requirements.txt`는 직접 의존성 범위, `requirements.lock.txt`는 검증한 전체 패키지 버전입니다.
+`.venv`는 만든 위치의 절대 경로가 들어가므로 폴더를 옮기거나 이름을 바꾸면 지우고 다시 만들어야 합니다.
+
+`requirements.txt` 하나에 함께 검증한 전체 패키지의 정확한 버전이 들어 있습니다.
+위쪽은 코드가 직접 쓰는 패키지, 아래쪽은 그 패키지가 함께 설치하는 패키지입니다.
+버전을 올리거나 패키지를 추가·삭제할 때는 이 파일을 고친 뒤 설치하고 서버가 정상 동작하는지 확인하세요.
 
 ## 서버 실행
 
@@ -72,7 +78,20 @@ HTTP 200과 다음 응답이 나옵니다.
 - `/products?limit=2`: HTTP 200, 실제 제품 2건 및 전체 제품 수 241 반환
 
 앞서 발생했던 HTTP 503 / `PGRST002`는 활성화 후 해소되었습니다.
-DB 테이블과 데이터는 수정하지 않았습니다. 제품 수는 검증 시점 기준입니다.
+DB 테이블과 데이터는 수정하지 않았습니다. 제품 수는 검증 시점 기준이며,
+2026-10-16 재확인 시에는 145건이었습니다.
+
+## 외부 서비스 키
+
+`.env`에 다음 키가 더 필요합니다. 모두 backend에서만 사용하며 프론트로 전달하지 않습니다.
+
+- `GEMINI_API_KEY`: LLM 리포트 생성(`POST /reports`, `POST /reports/mock`). 모델은 `GEMINI_MODEL`로 바꿀 수 있습니다.
+- `KAKAO_REST_API_KEY`: 주변 병원 검색(`GET /hospitals`).
+- `MOVAR_API_BASE_URL`: 추천 모델 서버(RunPod) 주소(`POST /recommendations`).
+- `MOVAR_VISION_API_BASE_URL`: 이미지 모델 서버(`ai/inference`) 주소(`POST /scalp-analyses`). backend와 포트가 겹치지 않게 다른 포트(예: 8001)로 실행합니다.
+
+로그인 토큰 검증(`GET /me`)은 위의 `SUPABASE_KEY`를 그대로 사용합니다.
+엔드포인트별 요청·응답은 `API_SPEC.md`를 참고하세요.
 
 공식 오류 안내:
 https://supabase.com/docs/guides/troubleshooting/postgrest-error-pgrst002-could-not-query-the-database-for-the-schema-cache-c396e9
