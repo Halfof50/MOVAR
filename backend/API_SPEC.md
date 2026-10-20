@@ -15,7 +15,8 @@
 | `POST /reports` | 구현 | 없음(추후 필요) | 전달받은 분석 결과로 LLM 리포트 생성 |
 | `GET /hospitals` | 구현 | 없음 | 현재 위치 기준 주변 병원 검색 (카카오 로컬 API) |
 | `GET /dashboard` | 미구현 (아래 초안) | 필요 | 대시보드 조회 |
-| 문진, 결과 저장·조회 | 미구현 | | 담당과 합의 후 정의 |
+| `GET /questionnaire` | 구현 | 없음 | 문진 문항과 선택지 조회 |
+| 결과 저장·조회 | 미구현 | | DB 담당과 합의 후 정의 |
 
 공통 사항
 - 인증은 Supabase Auth를 사용합니다. 프론트가 `supabase-js`로 로그인하고, 받은 access token을
@@ -55,6 +56,35 @@
 | 503 | `AUTH_NOT_CONFIGURED` / `AUTH_UNREACHABLE` / `AUTH_UPSTREAM_ERROR` | 설정 누락, 접속 불가, 인증 서버 오류 |
 | 504 | `AUTH_TIMEOUT` | 인증 서버 응답 시간 초과 |
 
+## 문진: GET /questionnaire
+
+프론트가 문진 화면을 그릴 때 쓰는 문항 목록입니다. 문항과 선택지는 backend가 정의하므로 바뀌어도 프론트는 이 응답대로 그리면 됩니다.
+각 문항은 `{id, label, type, options[{value, label}]}`이고 `type`은 하나만 고르는 `single`, 여러 개 고르는 `multi`입니다.
+
+| id | 질문 | type | 선택지(value) | 어디에 쓰이나 |
+| --- | --- | --- | --- | --- |
+| age_group | 연령대 | single | 10대, 20대, 30대, 40대, 50대 이상 | 추천 모델 + 리포트 |
+| wash_frequency | 샴푸 빈도 | single | 하루 2회 이상, 하루 1회, 이틀에 1회, 주 2~3회 | 추천 모델 + 리포트 |
+| dry_method | 머리 말리는 방법 | single | cool_dryer, hot_dryer, natural | 리포트 |
+| sweat | 땀이 많이 나는 활동 | single | rare, sometimes, often | 리포트 |
+| styling | 스타일링 제품 사용 | single | never, sometimes, often | 리포트 |
+| concerns | 두피 고민 | multi | itch, oily, flakes, redness, hair_loss, none | 리포트 |
+| budget | 제품 예산 | single | under_10000, under_20000, under_30000, any | 추천 모델(최대 가격) + 리포트 |
+
+문항의 표시 문구는 `GET /questionnaire` 응답이 기준이며 위 표는 요약입니다.
+
+**답변 형식:** 문항 id를 키로 하는 JSON 객체입니다. single은 선택지 `value` 문자열, multi는 `value`의 배열입니다.
+모든 문항에 답하지 않아도 됩니다. 모르는 문항 id, 선택지에 없는 값, single에 배열 또는 multi에 문자열, 배열 안의 중복은 422 `QUESTIONNAIRE_INVALID`입니다.
+
+```json
+{"age_group": "20대", "wash_frequency": "하루 1회", "concerns": ["oily", "flakes"], "budget": "under_30000"}
+```
+
+- 추천 모델로는 `age_group`, `wash_frequency`, `budget`(`under_10000`→10000원, `under_20000`→20000원, `under_30000`→30000원, `any`는 제한 없음)만 전달됩니다.
+- 알레르기와 민감도는 추천 서버에 반영 기능이 없어서 묻지 않습니다.
+- 지금은 `POST /analysis-reports`에서만 이 형식을 사용합니다. `POST /reports`의 `questionnaire`는 기존처럼 `{"문항": "답변"}` 자유 형식입니다.
+- 답변은 저장되지 않습니다. 저장 위치는 DB 담당과 정해야 합니다.
+
 ## 한 번에 생성: POST /analysis-reports
 
 사진 한 장으로 두피 분석 → 제품 추천 → LLM 리포트를 backend가 차례로 실행하고 결과를 한꺼번에 반환합니다.
@@ -68,7 +98,7 @@
 | --- | --- | --- |
 | file | 파일 (필수) | 두피 사진 1장. JPEG, PNG, WEBP, 10MB 이하 |
 | categories | 문자열, 여러 번 지정 가능 | `shampoo`, `scaler`, `treatment`, `tonic`. 생략하면 `shampoo` |
-| questionnaire | JSON 문자열 (선택) | `{"문항": "답변"}` 형식. 예: `{"세정 빈도": "하루 한 번"}`. 문자열 값만 허용 |
+| questionnaire | JSON 문자열 (선택) | `GET /questionnaire`의 문항 id를 키로 한 답변. 예: `{"age_group": "20대", "concerns": ["oily", "flakes"]}`. 일부 문항만 답해도 됨. 규칙은 아래 "문진" 참고 |
 
 응답은 `{symptoms, recommendations, report}`입니다.
 
@@ -81,10 +111,10 @@
 - 추천 결과가 없으면 `recommendations`가 빈 배열이고 리포트의 `products`도 빈 배열입니다.
 - 한 단계가 실패하면 그 단계의 오류가 그대로 반환되고 이후 단계는 실행하지 않습니다. 예를 들어 추천 서버가 꺼져 있으면 `RECOMMEND_UNREACHABLE`(503)이 나오고 LLM은 호출하지 않습니다.
 - `care_score`는 없이 생성됩니다(null).
-- 추천 요청은 카테고리만 보내며 `user_info`(연령, 세정 빈도, 최대 가격)는 아직 지원하지 않습니다.
+- 문진 답변 중 연령대, 샴푸 빈도, 예산은 추천 모델의 `user_info`로 전달되어 추천에 반영됩니다. 문진 전체는 리포트 문구에도 반영됩니다.
 - 현재 인증 검사가 없으며 호출마다 GPU 작업과 LLM 비용이 발생하므로 배포 전에 로그인 검사를 추가해야 합니다.
 
-추가 오류: 422 `QUESTIONNAIRE_INVALID`(문진이 JSON 객체가 아니거나 너무 긺). 그 외 코드는 `IMAGE_*`, `VISION_*`, `RECOMMEND_*`, `LLM_*`와 같습니다.
+추가 오류: 422 `QUESTIONNAIRE_INVALID`(문진 답변이 규칙에 맞지 않음). 그 외 코드는 `IMAGE_*`, `VISION_*`, `RECOMMEND_*`, `LLM_*`와 같습니다.
 
 ## 두피 분석: POST /scalp-analyses
 

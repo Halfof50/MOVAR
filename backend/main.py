@@ -10,7 +10,8 @@ from auth import get_current_user
 from database import read_products
 from hospitals import HospitalList, search_hospitals
 from mock_ai import build_mock_request
-from pipeline import AnalysisReportResponse, Category, analysis_report, parse_questionnaire
+from pipeline import AnalysisReportResponse, Category, analysis_report
+from questionnaire import QUESTIONS, Question, parse_answers
 from recommend import RecommendRequest, RecommendResponse, recommend_products
 from report import ReportRequest, ReportResponse, generate_report
 from vision import MAX_UPLOAD_BYTES, AnalysisResponse, analyze_image
@@ -58,6 +59,12 @@ async def me(user: dict = Depends(get_current_user)):
     return user
 
 
+@app.get('/questionnaire', response_model=list[Question], tags=['문진'], summary='문진 문항과 선택지 조회')
+def questionnaire_questions():
+    """프론트가 문진 화면을 그릴 때 쓰는 문항 목록입니다. 답변은 문항 id를 키로 `POST /analysis-reports`의 `questionnaire`에 보냅니다."""
+    return QUESTIONS
+
+
 @app.post('/recommendations', response_model=RecommendResponse, tags=['추천'], summary='두피 증상 기반 상품 추천 (추천 모델 서버 연동)')
 async def create_recommendations(req: RecommendRequest):
     """팀 추천 모델 서버(RunPod)에 작업을 등록하고 완료될 때까지 기다린 뒤 추천 상품(최대 3개)을 반환합니다. 보통 수 초가 걸립니다."""
@@ -74,9 +81,9 @@ async def scalp_analysis(file: UploadFile = File(..., description='두피 사진
 async def create_analysis_report(
     file: UploadFile = File(..., description='두피 사진 1장 (JPEG, PNG, WEBP, 10MB 이하)'),
     categories: list[Category] = Form(['shampoo'], description='추천 카테고리 (여러 번 지정 가능)'),
-    questionnaire: str | None = Form(None, description='문진 답변 JSON 문자열. 예: {"세정 빈도": "하루 한 번"}'),
+    questionnaire: str | None = Form(None, description='문진 답변 JSON 문자열(GET /questionnaire의 문항 id 기준). 예: {"age_group": "20대", "concerns": ["oily"]}'),
 ):
-    parsed = parse_questionnaire(questionnaire)
+    parsed = parse_answers(questionnaire)
     content = await file.read(MAX_UPLOAD_BYTES + 1)
     return await analysis_report(content, categories, parsed)
 
