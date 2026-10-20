@@ -1,7 +1,8 @@
 """MOCK stand-ins for the AI models still in development. Replace with real model calls later."""
 from database import read_products
-from recommend import Symptoms
-from report import ProductInput, ReportRequest
+from pipeline import AnalysisReportResponse
+from recommend import RecommendedProduct, Symptoms
+from report import ProductInput, ReportRequest, generate_report
 
 
 async def analyze_scalp() -> tuple[int, Symptoms]:
@@ -25,4 +26,17 @@ async def build_mock_request(questionnaire: dict[str, str]) -> ReportRequest:
         care_score=care_score,
         questionnaire=questionnaire,
         products=await recommend_products(),
+    )
+
+
+async def build_mock_analysis(questionnaire: dict[str, str]) -> AnalysisReportResponse:
+    """MOCK full result in the same shape as POST /analysis-reports, for trying the dashboard and history."""
+    request = await build_mock_request(questionnaire)
+    return AnalysisReportResponse(
+        symptoms=request.symptoms.model_dump(),
+        recommendations=[
+            RecommendedProduct(rank=rank, product_id=p.product_id, product_name=p.product_name, brand=p.brand_name)
+            for rank, p in enumerate(request.products, start=1)
+        ],
+        report=await generate_report(request),
     )

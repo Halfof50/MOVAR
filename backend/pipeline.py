@@ -16,6 +16,7 @@ class AnalysisReportResponse(BaseModel):
     symptoms: dict[str, int]
     recommendations: list[RecommendedProduct]
     report: ReportResponse
+    analysis_id: int | None = None
 
 
 async def analysis_report(content: bytes, categories: list[Category], answers: Answers) -> AnalysisReportResponse:

@@ -6,10 +6,12 @@ from fastapi import Body, Depends, FastAPI, File, Form, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
-from auth import get_current_user
+import history
+from auth import get_current_user, get_optional_user
 from database import read_products
 from hospitals import HospitalList, search_hospitals
-from mock_ai import build_mock_request
+from history import Dashboard, HistoryList
+from mock_ai import build_mock_analysis, build_mock_request
 from pipeline import AnalysisReportResponse, Category, analysis_report
 from questionnaire import QUESTIONS, Question, parse_answers
 from recommend import RecommendRequest, RecommendResponse, recommend_products
@@ -67,7 +69,7 @@ def questionnaire_questions():
 
 @app.post('/recommendations', response_model=RecommendResponse, tags=['추천'], summary='두피 증상 기반 상품 추천 (추천 모델 서버 연동)')
 async def create_recommendations(req: RecommendRequest):
-    """팀 추천 모델 서버(RunPod)에 작업을 등록하고 완료될 때까지 기다린 뒤 추천 상품(최대 3개)을 반환합니다. 보통 수 초가 걸립니다."""
+    """팀 추천 모델 서버(rag-api, 로컬)에 작업을 등록하고 완료될 때까지 기다린 뒤 추천 상품(최대 3개)을 반환합니다. 보통 수 초가 걸립니다."""
     return await recommend_products(req)
 
 
@@ -82,10 +84,38 @@ async def create_analysis_report(
     file: UploadFile = File(..., description='두피 사진 1장 (JPEG, PNG, WEBP, 10MB 이하)'),
     categories: list[Category] = Form(['shampoo'], description='추천 카테고리 (여러 번 지정 가능)'),
     questionnaire: str | None = Form(None, description='문진 답변 JSON 문자열(GET /questionnaire의 문항 id 기준). 예: {"age_group": "20대", "concerns": ["oily"]}'),
+    user: dict | None = Depends(get_optional_user),
 ):
     parsed = parse_answers(questionnaire)
     content = await file.read(MAX_UPLOAD_BYTES + 1)
-    return await analysis_report(content, categories, parsed)
+    result = await analysis_report(content, categories, parsed)
+    result.analysis_id = history.save(history.owner_key(user), result).analysis_id
+    return result
+
+
+@app.get('/dashboard', response_model=Dashboard, tags=['기록'], summary='대시보드: 최근 분석과 추천 제품 (임시 저장소)')
+def get_dashboard(user: dict | None = Depends(get_optional_user)):
+    """서버 메모리에 임시로 저장된 가장 최근 분석을 돌려줍니다. 분석 기록이 없으면 `latest_analysis`가 null입니다."""
+    return history.build_dashboard(user)
+
+
+@app.get('/analyses', response_model=HistoryList, tags=['기록'], summary='변화 기록: 분석 이력 (임시 저장소)')
+def list_analyses(limit: int = Query(20, ge=1, le=50), user: dict | None = Depends(get_optional_user)):
+    """최신순 분석 이력입니다. `changes`는 직전 분석 대비 증상 단계 변화(양수면 단계가 올라감)이며 가장 오래된 기록은 null입니다."""
+    return history.build_history(user, limit)
+
+
+@app.get('/analyses/{analysis_id}', response_model=history.StoredAnalysis, tags=['기록'], summary='분석 기록 상세 (임시 저장소)')
+def get_analysis(analysis_id: int, user: dict | None = Depends(get_optional_user)):
+    return history.get_one(history.owner_key(user), analysis_id)
+
+
+@app.post('/analyses/mock', response_model=AnalysisReportResponse, tags=['기록'], summary='[목업] 가짜 분석 결과를 기록에 추가')
+async def create_mock_analysis(questionnaire: dict[str, str] = Body(default_factory=dict), user: dict | None = Depends(get_optional_user)):
+    """이미지·추천 모델 없이 대시보드와 변화 기록을 확인하기 위한 용도입니다. 분석·추천은 목업이고 리포트 문구만 실제로 생성됩니다."""
+    result = await build_mock_analysis(questionnaire)
+    result.analysis_id = history.save(history.owner_key(user), result).analysis_id
+    return result
 
 
 @app.post('/reports', response_model=ReportResponse, tags=['리포트'], summary='분석 결과로 LLM 리포트 생성')

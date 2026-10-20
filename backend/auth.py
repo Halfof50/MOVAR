@@ -20,7 +20,19 @@ async def get_current_user(
     """Return the Supabase user ({'id', 'email'}) for the Bearer access token, or raise 401."""
     if credentials is None:
         raise _unauthorized('AUTH_REQUIRED', '로그인이 필요합니다.')
+    return await _verify_token(credentials)
 
+
+async def get_optional_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+) -> dict | None:
+    """Like get_current_user, but None for guests (no token). A token that is sent must still be valid."""
+    if credentials is None:
+        return None
+    return await _verify_token(credentials)
+
+
+async def _verify_token(credentials: HTTPAuthorizationCredentials) -> dict:
     load_dotenv(Path(__file__).with_name('.env'))
     url = os.getenv('SUPABASE_URL', '').rstrip('/')
     key = os.getenv('SUPABASE_KEY', '')

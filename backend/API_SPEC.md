@@ -14,9 +14,12 @@
 | `POST /reports/mock` | 구현 (목업) | 없음 | 가짜 AI 분석·추천 + 실제 LLM 문구로 리포트 생성 |
 | `POST /reports` | 구현 | 없음(추후 필요) | 전달받은 분석 결과로 LLM 리포트 생성 |
 | `GET /hospitals` | 구현 | 없음 | 현재 위치 기준 주변 병원 검색 (카카오 로컬 API) |
-| `GET /dashboard` | 미구현 (아래 초안) | 필요 | 대시보드 조회 |
+| `GET /dashboard` | 구현 (임시 저장소) | 선택 | 최근 분석과 추천 제품 |
+| `GET /analyses` | 구현 (임시 저장소) | 선택 | 분석 이력과 증상 변화(변화 기록) |
+| `GET /analyses/{id}` | 구현 (임시 저장소) | 선택 | 분석 기록 한 건의 상세 |
+| `POST /analyses/mock` | 구현 (목업) | 선택 | 가짜 분석 결과를 기록에 추가 |
 | `GET /questionnaire` | 구현 | 없음 | 문진 문항과 선택지 조회 |
-| 결과 저장·조회 | 미구현 | | DB 담당과 합의 후 정의 |
+| DB 영구 저장 | 미구현 | | DB 담당과 합의 후 정의 (`DB_SPEC.md`) |
 
 공통 사항
 - 인증은 Supabase Auth를 사용합니다. 프론트가 `supabase-js`로 로그인하고, 받은 access token을
@@ -85,6 +88,69 @@
 - 지금은 `POST /analysis-reports`에서만 이 형식을 사용합니다. `POST /reports`의 `questionnaire`는 기존처럼 `{"문항": "답변"}` 자유 형식입니다.
 - 답변은 저장되지 않습니다. 저장 위치는 DB 담당과 정해야 합니다.
 
+## 대시보드와 변화 기록: GET /dashboard, GET /analyses
+
+**임시 저장소 기반입니다.** 분석 기록은 DB가 아니라 backend 서버의 메모리에 저장됩니다. 따라서 다음 한계가 있습니다.
+- **서버를 재시작하면 모든 기록이 사라집니다.**
+- 로그인 토큰을 보내면 그 사용자 본인의 기록만, 토큰이 없으면 **게스트 공용 기록**(모든 게스트가 같은 목록을 봄)을 다룹니다. 사용자당 최대 50건까지 보관하고 오래된 것부터 지웁니다.
+- 기록은 `POST /analysis-reports`(또는 목업 `POST /analyses/mock`)가 성공할 때 자동으로 저장되며, 응답의 `analysis_id`가 그 기록의 번호입니다.
+- DB 테이블이 정해지면(`DB_SPEC.md`) 응답 형식은 그대로 두고 저장 부분만 DB로 바꿉니다.
+
+인증은 선택입니다. 토큰을 보내면 검증하고(유효하지 않으면 401), 보내지 않으면 게스트로 처리합니다.
+
+### GET /dashboard
+
+```json
+{
+  "user": {"is_guest": false, "nickname": "kim"},
+  "latest_analysis": {
+    "analysis_id": 2, "analyzed_at": "2026-10-20T15:30:00+09:00", "care_score": null,
+    "summary_title": "피지 관리가 필요해요", "summary_text": "...",
+    "conditions": [{"code": "excess_sebum", "label": "피지과다", "level": 3}, "... 증상 6개 모두"]
+  },
+  "recommended_products": [{"rank": 1, "product_id": 64, "product_name": "...", "brand": "...", "price": 19900, "image": "...", "link": "..."}]
+}
+```
+
+- `latest_analysis`는 가장 최근 기록이며 기록이 없으면 `null`이고 `recommended_products`는 빈 배열입니다. 이때 화면은 분석 시작 안내를 보여 줍니다.
+- `user.nickname`은 로그인한 경우 이메일의 `@` 앞부분입니다(DB의 닉네임이 생기면 그 값으로 교체). 게스트는 `null`입니다.
+- `conditions`는 증상 6개를 모두 `{code, label, level}`로 줍니다. 시안의 3개 지표(유분·각질·붉은기)로 줄이는 규칙은 아직 정해지지 않아서 6개를 모두 주고, 화면에서 고릅니다.
+- `care_score`는 산정 기준이 없어서 보통 `null`입니다.
+- `recommended_products`는 `POST /recommendations`의 항목과 같은 형식(순위, 이름, 브랜드, 가격, 평점, 이미지, 구매 링크, 추천 이유 등)입니다. 목업 기록에는 이름과 브랜드만 있습니다.
+
+### GET /analyses (변화 기록)
+
+쿼리: `limit` 1~50(기본 20). **최신 기록이 먼저** 나옵니다.
+
+```json
+{
+  "total": 2,
+  "items": [
+    {"analysis_id": 2, "analyzed_at": "...", "care_score": null, "headline": "피지 관리가 필요해요",
+     "symptoms": {"micro_keratin": 0, "excess_sebum": 3, "follicular_erythema": 1, "follicular_pustule": 0, "dandruff": 1, "hair_loss": 0},
+     "changes": {"micro_keratin": 0, "excess_sebum": 1, "follicular_erythema": 0, "follicular_pustule": 0, "dandruff": 1, "hair_loss": 0}},
+    {"analysis_id": 1, "analyzed_at": "...", "care_score": null, "headline": "...", "symptoms": {"...": 0}, "changes": null}
+  ]
+}
+```
+
+- `changes`는 **직전 분석 대비** 증상 단계의 차이입니다. 양수면 단계가 올라간 것(증상이 심해짐), 음수면 내려간 것입니다. 가장 오래된 기록은 비교 대상이 없어서 `null`입니다.
+- `total`은 보관 중인 전체 건수이고 `items`는 `limit`만큼만 담깁니다.
+
+### GET /analyses/{analysis_id}
+
+기록 한 건의 `{analysis_id, analyzed_at, care_score, symptoms, recommendations, report}` 전체를 줍니다(리포트 본문 포함). 본인 기록이 아니거나 없으면 404 `ANALYSIS_NOT_FOUND`입니다.
+
+### POST /analyses/mock
+
+이미지·추천 모델 없이 대시보드와 변화 기록 화면을 확인하기 위한 목업입니다. 본문은 `POST /reports/mock`처럼 문진 답변 객체(생략 가능)입니다.
+가짜 분석(피지과다 2, 모낭사이홍반 1)과 DB의 앞쪽 제품 2개를 기록에 추가하고, 리포트 문구만 실제 LLM이 생성합니다. 호출할 때마다 같은 증상이 저장되므로 `changes`는 모두 0입니다.
+
+| 상태 | code | 의미 |
+| --- | --- | --- |
+| 401 | `AUTH_INVALID_TOKEN` | 토큰을 보냈지만 만료되었거나 유효하지 않음 |
+| 404 | `ANALYSIS_NOT_FOUND` | 상세 조회 시 기록이 없거나 본인 기록이 아님 |
+
 ## 한 번에 생성: POST /analysis-reports
 
 사진 한 장으로 두피 분석 → 제품 추천 → LLM 리포트를 backend가 차례로 실행하고 결과를 한꺼번에 반환합니다.
@@ -100,7 +166,7 @@
 | categories | 문자열, 여러 번 지정 가능 | `shampoo`, `scaler`, `treatment`, `tonic`. 생략하면 `shampoo` |
 | questionnaire | JSON 문자열 (선택) | `GET /questionnaire`의 문항 id를 키로 한 답변. 예: `{"age_group": "20대", "concerns": ["oily", "flakes"]}`. 일부 문항만 답해도 됨. 규칙은 아래 "문진" 참고 |
 
-응답은 `{symptoms, recommendations, report}`입니다.
+응답은 `{symptoms, recommendations, report, analysis_id}`입니다. `analysis_id`는 임시 저장소에 저장된 기록 번호이며 `GET /analyses/{id}`로 다시 볼 수 있습니다.
 
 | 필드 | 의미 |
 | --- | --- |
@@ -145,9 +211,9 @@
 
 ## 상품 추천: POST /recommendations
 
-팀 추천 모델 서버(RunPod, Hybrid RAG + Qwen)에 작업을 등록하고, 완료될 때까지 backend가 대신 조회한 뒤 추천 상품을 반환합니다.
-프론트는 이 엔드포인트 하나만 호출하면 되며 RunPod 주소를 알 필요가 없습니다(브라우저 직접 호출은 CORS 문제가 있어 backend가 중계합니다).
-추천 서버 연동 규격은 `MOVAR_RAG_API 연동 가이드.md`를 따릅니다. 보통 수 초가 걸리며 최대 120초까지 기다립니다.
+팀 추천 모델 서버(`rag-api`: Hybrid RAG + Qwen2.5 14B, Ollama)에 작업을 등록하고, 완료될 때까지 backend가 대신 조회한 뒤 추천 상품을 반환합니다. 같은 PC의 로컬 서버(8002번)로 실행합니다.
+프론트는 이 엔드포인트 하나만 호출하면 되며 추천 서버 주소를 알 필요가 없습니다(브라우저 직접 호출은 CORS 문제가 있어 backend가 중계합니다).
+추천 서버 연동 규격은 `MOVAR_RAG_API 연동 가이드.md`를 따릅니다. 보통 수 초가 걸리며 최대 300초까지 기다립니다(처음 호출은 모델을 불러오느라 더 걸릴 수 있습니다).
 
 ### 요청
 
@@ -185,10 +251,10 @@ symptoms 필드: `micro_keratin`(미세각질), `excess_sebum`(피지과다), `f
 | 422 | (FastAPI 기본) | 증상 누락·범위(0~3) 오류, 잘못된 카테고리 |
 | 429 | `RECOMMEND_BUSY` | 추천 서버의 동시 작업 제한 초과. 잠시 후 재시도 |
 | 502 | `RECOMMEND_JOB_FAILED` / `RECOMMEND_JOB_LOST` / `RECOMMEND_UPSTREAM_ERROR` / `RECOMMEND_INVALID_RESPONSE` | 추천 작업 실패, 작업 소실(서버 재시작), 요청 거절, 응답 형식 오류 |
-| 503 | `RECOMMEND_NOT_CONFIGURED` / `RECOMMEND_UNREACHABLE` / `RECOMMEND_UPSTREAM_ERROR` | 주소 미설정, 추천 서버 접속 불가(Pod 중지 가능), 서버 오류 |
+| 503 | `RECOMMEND_NOT_CONFIGURED` / `RECOMMEND_UNREACHABLE` / `RECOMMEND_UPSTREAM_ERROR` | 주소 미설정, 추천 서버 접속 불가(서버가 꺼져 있음), 서버 오류 |
 | 504 | `RECOMMEND_TIMEOUT` | 응답 대기 시간 초과 |
 
-추천 서버 주소는 Pod를 다시 만들면 바뀝니다. 바뀌면 backend `.env`의 `MOVAR_API_BASE_URL`만 갱신하고 서버를 재시작합니다.
+추천 서버 주소는 `.env`의 `MOVAR_API_BASE_URL`(로컬 기본값 `http://127.0.0.1:8002`)입니다. 바꾸면 backend를 재시작합니다. 추천 서버는 동시에 2건까지만 처리하고 그 이상은 429입니다.
 현재 인증 검사가 없으며 호출이 추천 서버의 GPU 작업으로 이어지므로, 배포 전에 로그인 검사를 추가해야 합니다.
 
 ## 리포트: POST /reports, POST /reports/mock
@@ -269,10 +335,12 @@ AI 두피 분석 리포트(시안: 케어 지수, 요약, 증상별 상태, 맞�
 `HOSPITAL_UPSTREAM_ERROR` / `HOSPITAL_UNREACHABLE`, 504 `HOSPITAL_TIMEOUT`.
 카카오 검색 결과는 키워드에 맞는 장소이며 진료과목이나 영업 여부를 보증하지 않습니다.
 
-# 대시보드 API 초안
+# 대시보드 API 초안 (처음 제안한 내용)
 
-사용자가 공유한 대시보드 시안을 기준으로 정리한 제안입니다.
-아래 `/dashboard`는 아직 구현되지 않았으며 프론트·AI·DB 담당과 합의할 계약 초안입니다.
+사용자가 공유한 대시보드 시안을 기준으로 정리한 처음 제안입니다.
+**`/dashboard`는 위 "대시보드와 변화 기록" 섹션의 형태로 구현되었습니다.** 구현된 응답이 현재 기준이며, 아래 초안과 다른 점은
+`conditions`가 유분·각질·붉은기 3개(`grade`, `display_value`)가 아니라 증상 6개(`level` 0~3)이고, `recommended_products`가
+추천 모델 응답 형식이라는 것입니다. 이하는 처음 제안 내용을 참고용으로 남긴 것입니다.
 
 ## 화면 범위
 
@@ -362,6 +430,8 @@ DB 장애를 분석 기록 없음으로 바꾸어 응답하지 않습니다.
 이번 문서는 대시보드 기준 초안 작성까지만 수행하며 DB 구조·데이터는 변경하지 않습니다.
 
 ## DB 담당에게 확인할 질문
+
+DB 구조 제안(테이블 변경 SQL 초안, 저장할 데이터, 접근 권한)은 `DB_SPEC.md`에 따로 정리했습니다. 아래는 그 전에 정리한 요약 질문입니다.
 
 2026-10-16에 읽기 전용으로 확인한 DB 상태입니다. `users`, `scalp_analyses`, `recommendations`는 행이 0개입니다.
 

@@ -1,4 +1,4 @@
-"""Product recommendation via the team's RAG API (RunPod): submit a job, then poll until it is done."""
+"""Product recommendation via the team's local RAG API (rag-api, Ollama + Qwen): submit a job, then poll until it is done."""
 import asyncio
 import os
 import time
@@ -11,7 +11,7 @@ from fastapi import HTTPException
 from pydantic import BaseModel, Field, ValidationError
 
 POLL_INTERVAL = 2.0
-JOB_DEADLINE = 120.0
+JOB_DEADLINE = 300.0  # a local 14B model on one GPU is slower than a hosted one; matches rag-api's MOVAR_LLM_TIMEOUT
 
 Level = Annotated[int, Field(ge=0, le=3, description='증상 단계 0(없음)~3(가장 높음)')]
 
