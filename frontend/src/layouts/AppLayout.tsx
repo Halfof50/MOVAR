@@ -11,9 +11,11 @@ const menus = [
 
 export default function AppLayout() {
   const { user, logout } = useAccount()
+  const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   async function signOut() {
-    try { await logout() } catch(e) { setError(errorMessage(e)) }
+    setBusy(true); setError('')
+    try { await logout() } catch(e) { setError(errorMessage(e)) } finally { setBusy(false) }
   }
   return (
     <div className="app-shell">
@@ -43,8 +45,8 @@ export default function AppLayout() {
         <header className="header">
           <span>나의 두피 케어</span>
           <div className="account">
-            <span className="badge">{user ? `${user.name} · 데모` : '게스트'}</span>
-            {user ? <><Link className="text-link" to="/mypage">마이페이지</Link><button type="button" className="text-link" onClick={signOut}>로그아웃</button></> : <Link className="text-link" to="/login">로그인</Link>}
+            <span className="account-name">{user ? user.name : '게스트'}</span>
+            {user ? <><Link className="account-button" to="/mypage">마이페이지</Link><button type="button" className="account-button account-button-secondary" onClick={signOut} disabled={busy}>{busy ? '로그아웃 중…' : '로그아웃'}</button></> : <><Link className="account-button" to="/login">로그인</Link><Link className="account-button account-button-secondary" to="/signup">회원가입</Link></>}
             {error && <span role="alert">{error}</span>}
           </div>
         </header>

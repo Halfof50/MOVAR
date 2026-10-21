@@ -1,8 +1,9 @@
 import { createContext, useContext } from 'react'
 import type { AnalysisRecord, User } from '../services/accountApi'
 export type AccountState = {
-  user: User | null; ready: boolean; records: AnalysisRecord[]; historyError: string
+  user: User | null; ready: boolean; records: AnalysisRecord[]; historyError: string; authError: string
   login: (email: string, password: string) => Promise<void>
+  updateNickname: (nickname: string) => Promise<void>
   logout: () => Promise<void>
   refresh: () => Promise<void>
   save: (record: AnalysisRecord) => Promise<void>

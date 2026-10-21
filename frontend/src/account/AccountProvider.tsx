@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
+import { authConfigError } from '../services/supabase'
 import { accountApi } from '../services/accountApi'
 import type { AnalysisRecord, User } from '../services/accountApi'
 import { AccountContext, errorMessage } from './AccountContext'
@@ -8,6 +9,7 @@ export default function AccountProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [ready, setReady] = useState(false)
   const [records, setRecords] = useState<AnalysisRecord[]>([])
+  const [authError, setAuthError] = useState(authConfigError)
   const [historyError, setHistoryError] = useState('')
   const activeId = useRef<string | null>(null)
   async function load(id: string) {
@@ -20,26 +22,50 @@ export default function AccountProvider({ children }: { children: ReactNode }) {
   }
   useEffect(() => {
     let active = true
-    accountApi.getSession().then(async session => {
+    let revision = 0
+    function apply(session: User | null) {
       if (!active) return
+      const changedAccount = activeId.current !== (session?.id ?? null)
       activeId.current = session?.id ?? null
       setUser(session)
-      if (session) await load(session.id)
-    }).catch(error => { if (active) setHistoryError(errorMessage(error)) })
-      .finally(() => { if (active) setReady(true) })
-    return () => { active = false; activeId.current = null }
+      if (changedAccount) { setRecords([]); setHistoryError('') }
+      setAuthError('')
+      setReady(true)
+    }
+    // Keep callback synchronous: do not call other Auth methods inside its lock.
+    const unsubscribe = accountApi.subscribe(session => {
+      revision++
+      apply(session)
+    })
+    const initialRevision = revision
+    accountApi.getSession().then(session => {
+      if (revision === initialRevision) apply(session)
+    }).catch(error => {
+      if (active && revision === initialRevision) {
+        setAuthError(errorMessage(error)); setReady(true)
+      }
+    })
+    return () => { active = false; activeId.current = null; unsubscribe() }
   }, [])
+  useEffect(() => {
+    let active = true
+    if (user) {
+      accountApi.listAnalyses(user.id).then(rows => {
+        if (active) { setRecords(rows); setHistoryError('') }
+      }).catch(error => { if (active) setHistoryError(errorMessage(error)) })
+    }
+    return () => { active = false }
+  }, [user])
   async function login(email: string, password: string) {
-    const session = await accountApi.login(email, password)
-    activeId.current = session.id
-    setUser(session); setRecords([]); setHistoryError('')
-    await load(session.id)
+    await accountApi.login(email, password)
+    // Auth event updates all consumers, including other tabs.
   }
-  async function logout() {
-    await accountApi.logout()
-    activeId.current = null
-    setUser(null); setRecords([]); setHistoryError('')
+  async function updateNickname(nickname: string) {
+    if (!user) throw new Error('로그인이 필요해요.')
+    const updated = await accountApi.updateNickname(nickname)
+    if (activeId.current === updated.id) setUser(updated)
   }
+  async function logout() { await accountApi.logout() }
   async function refresh() { if (user) await load(user.id) }
   async function save(record: AnalysisRecord) {
     if (!user) throw new Error('로그인이 필요해요.')
@@ -51,5 +77,5 @@ export default function AccountProvider({ children }: { children: ReactNode }) {
     await accountApi.addSamples(user.id)
     await load(user.id)
   }
-  return <AccountContext.Provider value={{ user, ready, records, historyError, login, logout, refresh, save, addSamples }}>{children}</AccountContext.Provider>
+  return <AccountContext.Provider value={{ user, ready, records, historyError, authError, login, updateNickname, logout, refresh, save, addSamples }}>{children}</AccountContext.Provider>
 }

@@ -6,6 +6,7 @@ import AppLayout from './layouts/AppLayout'
 import HomePage from './pages/HomePage'
 import CapturePage from './pages/CapturePage'
 import LoginPage from './pages/LoginPage'
+import SignUpPage from './pages/SignUpPage'
 import HospitalsPage from './pages/HospitalsPage'
 import MyPage from './pages/MyPage'
 import CarePage from './pages/CarePage'
@@ -43,6 +44,7 @@ function SessionRoutes() {
   return <Routes><Route element={<AppLayout />}>
     <Route index element={<HomePage />} />
     <Route path="login" element={<LoginPage />} />
+    <Route path="signup" element={<SignUpPage />} />
     <Route path="hospitals" element={<HospitalsPage />} />
     <Route path="capture" element={<CapturePage onAnalysisComplete={completeAnalysis} />} />
     <Route path="results" element={<div className="stack">

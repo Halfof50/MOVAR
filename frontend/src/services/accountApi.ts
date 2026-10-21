@@ -1,3 +1,7 @@
+import { isLocalAuth } from './authMode'
+import { localAuth } from './localAuth'
+import type { User as SupabaseUser } from '@supabase/supabase-js'
+import { supabase, getSupabase, authErrorMessage } from './supabase'
 import { demoScalpResults } from '../data/scalpResults'
 import type { Severity } from '../data/scalpResults'
 
@@ -6,16 +10,19 @@ export type AnalysisRecord = {
   id: string; userId: string; createdAt: string; photoName: string
   source: 'demo'; sample: boolean; scores: { id: string; level: Severity }[]
 }
-export const DEMO_EMAIL = 'demo@movar.test'
-export const DEMO_PASSWORD = 'movar1234'
-const demoUser: User = { id: 'movar-demo-user', name: '테스트 사용자', email: DEMO_EMAIL }
-const sessionKey = 'movar.demo.session.v1'
+export function toAccountUser(user: SupabaseUser): User {
+  const name = [user.user_metadata?.display_name, user.user_metadata?.full_name, user.user_metadata?.name]
+    .find(value => typeof value === 'string' && value.trim())
+  return { id: user.id, email: user.email ?? '',
+    name: typeof name === 'string' && name.trim() ? name.trim() : user.email?.split('@')[0] || '사용자' }
+}
 const historyKey = (id: string) => `movar.demo.history.v1.${id}`
 
-function requireSession(userId: string) {
-  if (sessionStorage.getItem(sessionKey) !== userId || userId !== demoUser.id) {
+// Local demo history only. This is not database authorization.
+async function requireSession(userId: string) {
+  const user = await accountApi.getSession()
+  if (!user || user.id !== userId)
     throw new Error('로그인이 필요해요. 다시 로그인해주세요.')
-  }
 }
 function readRecords(userId: string): AnalysisRecord[] {
   const raw = localStorage.getItem(historyKey(userId))
@@ -35,25 +42,87 @@ export function createDemoRecord(userId: string, photoName: string): AnalysisRec
     source: 'demo', sample: false, scores: demoScalpResults.map(({ id, level }) => ({ id, level })) }
 }
 
-// Demo adapter only. Replace these methods with server authentication and DB APIs.
-// The browser demo password is public; it is not a production security boundary.
-// Production must derive the account from a server session, not trust userId input.
+// Authentication uses the selected adapter; analysis records remain local demo data.
+// Future DB access must enforce auth.uid() ownership through RLS/server checks.
 export const accountApi = {
+  subscribe(listener: (user: User | null) => void) {
+    if (isLocalAuth) return localAuth.subscribe(listener)
+    const subscription = supabase?.auth.onAuthStateChange((_event, session) => {
+      listener(session ? toAccountUser(session.user) : null)
+    }).data.subscription
+    return () => subscription?.unsubscribe()
+  },
   async getSession(): Promise<User | null> {
-    return sessionStorage.getItem(sessionKey) === demoUser.id ? demoUser : null
+    if (isLocalAuth) return localAuth.getSession()
+    const { data, error } = await getSupabase().auth.getSession()
+    if (error) throw new Error(authErrorMessage(error))
+    return data.session ? toAccountUser(data.session.user) : null
   },
   async login(email: string, password: string): Promise<User> {
-    if (email.trim().toLowerCase() !== DEMO_EMAIL || password !== DEMO_PASSWORD) throw new Error('이메일 또는 비밀번호가 올바르지 않아요.')
-    sessionStorage.setItem(sessionKey, demoUser.id)
-    return demoUser
+    if (isLocalAuth) return localAuth.login(email, password)
+    const client = getSupabase()
+    try {
+      const { data, error } = await client.auth.signInWithPassword({ email: email.trim(), password })
+      if (error) throw error
+      return toAccountUser(data.user)
+    } catch (error) { throw new Error(authErrorMessage(error), { cause: error }) }
   },
-  async logout(): Promise<void> { sessionStorage.removeItem(sessionKey) },
+  async signUp(email: string, password: string, nicknameValue: string): Promise<boolean> {
+    if (isLocalAuth) return localAuth.signUp(email, password, nicknameValue)
+    const nickname = nicknameValue.trim()
+    if (nickname.length < 2 || nickname.length > 20 || /[\p{Cc}\p{Cf}]/u.test(nickname))
+      throw new Error('닉네임은 제어 문자 없이 2~20자로 입력해주세요.')
+    if (password.length < 8) throw new Error('비밀번호는 8자 이상 입력해주세요.')
+    const client = getSupabase()
+    try {
+      const { data, error } = await client.auth.signUp({
+        email: email.trim(), password,
+        options: {
+          data: { display_name: nickname, full_name: nickname },
+          emailRedirectTo: `${window.location.origin}/login`,
+        },
+      })
+      if (error) throw error
+      // A null session means email confirmation is required. Do not assume
+      // a new user was created: Supabase may conceal existing accounts.
+      return !!data.session
+    } catch (error) { throw new Error(authErrorMessage(error), { cause: error }) }
+  },
+  async updateNickname(value: string): Promise<User> {
+    if (isLocalAuth) return localAuth.updateNickname(value)
+    const nickname = value.trim()
+    if (nickname.length < 2 || nickname.length > 20)
+      throw new Error('닉네임은 2~20자로 입력해주세요.')
+    if (/[\p{Cc}\p{Cf}]/u.test(nickname))
+      throw new Error('닉네임에 줄바꿈이나 보이지 않는 제어 문자를 사용할 수 없어요.')
+    const client = getSupabase()
+    const { data: sessionData, error: sessionError } = await client.auth.getSession()
+    if (sessionError || !sessionData.session) throw new Error('로그인이 필요해요. 다시 로그인해주세요.')
+    try {
+      // Auth updates the signed-in user only and merges the metadata patch.
+      // full_name mirrors the nickname for dashboard display compatibility.
+      const { data, error } = await client.auth.updateUser({
+        data: { display_name: nickname, full_name: nickname },
+      })
+      if (error) throw error
+      return toAccountUser(data.user)
+    } catch (error) {
+      throw new Error('닉네임을 저장하지 못했어요. 로그인 상태와 인터넷 연결을 확인한 뒤 다시 시도해주세요.', { cause: error })
+    }
+  },
+  async logout(): Promise<void> {
+    if (isLocalAuth) return localAuth.logout()
+    try {
+      const { error } = await getSupabase().auth.signOut({ scope: 'local' })
+      if (error) throw error
+    } catch { throw new Error('로그아웃하지 못했어요. 연결을 확인한 뒤 다시 시도해주세요.') }
+  },
   async listAnalyses(userId: string): Promise<AnalysisRecord[]> {
-    requireSession(userId)
+    await requireSession(userId)
     return readRecords(userId)
   },
   async saveAnalysis(userId: string, record: AnalysisRecord): Promise<void> {
-    requireSession(userId)
+    await requireSession(userId)
     if (record.userId !== userId) throw new Error('계정이 일치하지 않아요.')
     const records = readRecords(userId)
     if (records.some(r => r.id === record.id)) return
@@ -61,7 +130,7 @@ export const accountApi = {
     catch { throw new Error('기록을 저장하지 못했어요. 브라우저 저장 공간과 설정을 확인한 뒤 다시 시도해주세요.') }
   },
   async addSamples(userId: string): Promise<void> {
-    requireSession(userId)
+    await requireSession(userId)
     for (let i = 1; i <= 3; i++) {
       const record = createDemoRecord(userId, `체험용 기록 ${i}`)
       record.id = `sample-${i}`

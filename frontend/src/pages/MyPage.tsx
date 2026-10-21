@@ -1,3 +1,5 @@
+import { isLocalAuth } from '../services/authMode'
+import NicknameForm from '../components/NicknameForm'
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { useAccount, errorMessage } from '../account/AccountContext'
@@ -14,6 +16,8 @@ export default function MyPage() {
   }
   return <div className="stack account-page">
     <section className="page-heading"><p className="eyebrow">MY MOVAR</p><h1>{user.name}님의 마이페이지</h1><p>{user.email}</p></section>
+    {isLocalAuth && <p className="notice">로컬 시연 모드 · 계정과 기록은 이 브라우저에 저장돼요. 브라우저 데이터를 삭제하면 사라져요.</p>}
+    <NicknameForm />
     <section className="card"><h2>나의 분석 기록 <span className="badge">{records.length}건</span></h2><p>최신 기록부터 표시해요. 모든 기록은 실제 AI 분석이 아닌 데모 결과입니다.</p>
       <div className="account-actions"><Link className="button" to="/capture">새 분석하기</Link><Link className="button" to="/care">맞춤 케어 보기</Link><button className="button account-secondary" onClick={samples} disabled={busy || !!historyError || records.some(r => r.sample)}>{busy ? '추가 중…' : records.some(r => r.sample) ? '체험용 기록 추가됨' : '체험용 기록 3개 추가'}</button></div>
       <p className="account-small">이 브라우저에 날짜·사진명·항목별 결과를 저장해요. 원본 사진은 저장하지 않아요.</p>
