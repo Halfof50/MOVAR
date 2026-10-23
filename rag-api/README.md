@@ -1,6 +1,8 @@
 # MOVAR RAG API
 
-두피 상태 기반 헤어케어 상품 추천 API. 비전 모델 연동 전 단계에서는 6개 두피 증상(Level 0~3)을 수동 입력한다. 로컬 상품 CSV 및 벡터 인덱스를 사용하며, Hybrid Retrieval로 선정한 후보를 Qwen2.5 14B로 평가한 후 상위 3개 상품을 반환한다.
+> **업데이트 (2026-10-23):** Supabase 상품 DB 자동 동기화 및 데이터 검증·로컬 백업·벡터 인덱스 자동 갱신 기능 추가.
+
+두피 상태 기반 헤어케어 상품 추천 API. 비전 모델 연동 전 단계에서는 6개 두피 증상(Level 0~3)을 수동 입력한다. 서버 시작 시 Supabase 상품 데이터를 검증·동기화하고, 로컬 상품 CSV 및 벡터 인덱스를 이용한다. Hybrid Retrieval로 선정한 후보를 Qwen2.5 14B로 평가한 후 상위 3개 상품을 반환한다.
 
 ## 1. 실행 환경 구성
 
@@ -14,7 +16,7 @@
 | LLM 런타임 | Ollama |
 | LLM 모델 | `qwen2.5:14b` |
 | Embedding 모델 | `jhgan/ko-sroberta-multitask` |
-| 상품 데이터 | `data/products.csv` 및 `data/index/` |
+| 상품 데이터 | Supabase `products` → `data/products.csv` 및 `data/index/` (로컬 저장) |
 
 - 실행 기준 디렉터리: `MOVAR/rag-api/`
 - Python 가상환경: `rag-api/.venv/`
@@ -72,7 +74,41 @@ Invoke-RestMethod http://127.0.0.1:11434/api/tags
 - 모델 실행 확인(선택): `ollama run qwen2.5:14b`
 - `ollama list`에 모델이 이미 존재하면 재다운로드 불필요
 
-### 1.4. API 서버 실행 및 검증
+### 1.4. Supabase 상품 DB 연동 설정
+
+프로젝트 최상위 `rag-api/.env`에 다음 값을 설정한다. `.env.example`을 복사해 사용할 수 있다.
+
+```dotenv
+SUPABASE_URL=https://프로젝트주소.supabase.co
+SUPABASE_KEY=상품_조회_권한이_있는_API키
+```
+
+- Supabase의 `public.products` 테이블을 **읽기 전용**으로 조회한다. 사용할 키(anon 또는 publishable)와 RLS 정책에 상품 조회 권한이 있어야 한다.
+- **`.env`는 Git에 커밋하지 않는다.** 서버 시작 시 `supabase_sync.py`가 이 파일을 읽으며, 이미 지정된 프로세스 환경변수는 덮어쓰지 않는다.
+- Supabase 설정이 없거나 조회·검증에 실패하면 **기존 로컬 CSV와 일치하는 벡터 인덱스**를 사용한다. 로컬 인덱스까지 없는 신규 환경에서는 별도 초기 인덱스 생성이 필요하다.
+- 동기화는 **FastAPI 서버 시작 시 1회** 수행한다. 서버 실행 중 변경된 DB 내용은 다음 시작 때 반영된다.
+
+#### 시작 시 데이터 검증 및 자동 갱신
+
+1. Supabase `products` 전체를 페이지 단위(최대 500건씩)로 조회하고, 서버의 전체 상품 수와 실제 조회 수가 일치하는지 확인한다.
+2. 예상 컬럼 26개, 필수값(`product_id`, `name`, `category`, `ingredients`), 상품 ID 중복 여부를 검사한다.
+3. 기존 로컬 데이터보다 상품이 **15개 이상 감소**하거나 기존 상품 ID가 **15개 이상 누락**되면 갱신하지 않는다. 최초 구버전 CSV에 `product_id`가 없으면 상품명으로 비교한다.
+4. 기존 CSV와 상품 데이터가 같고 인덱스도 정상이라면 **재임베딩 없이 기존 인덱스**를 사용한다.
+5. 상품이 변경되면 임시 CSV를 생성하고 기존 임베딩 모델로 전체 상품의 벡터 인덱스를 다시 만든다. 생성·검증 성공 후 CSV와 인덱스를 함께 교체한다.
+6. 이전 정상본은 `data/backup/products.csv` 및 `data/backup/index/`에 **직전 버전 1개만** 보관한다. DB·임베딩 갱신 실패 시 기존 정상 데이터를 유지한다.
+
+시작 과정은 터미널의 **`[DB SYNC]` 로그**로 확인할 수 있다.
+
+```text
+[DB SYNC] 시작 시 Supabase 상품 DB 검증 과정 진행 중...
+[DB SYNC] 상품 조회 중: 145/145건
+[DB SYNC] 데이터 검증 통과: 정상 상품 145개
+[DB SYNC] DB 변경 없음 — 기존 벡터 인덱스 사용 (실행 시간)
+```
+
+상품 변경이 감지되면 인덱스 재생성·백업·교체 진행 로그가 추가된다. 최초 연동 테스트에서는 Supabase 상품 **145개**를 조회해 인덱스를 재생성했으며, 전체 동기화에 **31.22초**가 걸렸다(해당 실행 환경의 관측값).
+
+### 1.5. API 서버 실행 및 검증
 
 `MOVAR/rag-api/`에서 가상환경 활성화 후 실행:
 
@@ -100,7 +136,7 @@ $env:MOVAR_LLM_MODEL = "qwen2.5:14b"
 $env:MOVAR_LLM_TIMEOUT = "300"
 ```
 
-환경변수를 지정하지 않으면 위 기본값을 사용한다. 현재 코드는 `.env` 파일을 자동 로드하지 않는다.
+환경변수를 지정하지 않으면 위 기본값을 사용한다. Supabase 동기화 설정용 `.env`는 서버 시작 시 읽으며, 기존 Ollama 관련 기본 설정과 API 호출 방식은 유지한다.
 
 ## 2. 프로젝트 구조
 
@@ -121,7 +157,8 @@ rag-api/
 │   └── retrieval/
 │       ├── retriever.py                # Hybrid 검색 및 필터링
 │       ├── query_builder.py            # 증상 기반 검색 쿼리 생성
-│       ├── build_index.py              # 상품 임베딩 인덱스 생성
+│       ├── build_index.py              # 상품 임베딩 인덱스 생성 (Supabase 상품 ID 유지)
+│       ├── supabase_sync.py            # DB 조회·검증·비교·백업·자동 인덱스 갱신
 │       ├── embedding/
 │       │   ├── embedding_model.py      # 한국어 임베딩 모델
 │       │   └── vector_store.py         # 벡터 로드 및 유사도 계산
@@ -131,21 +168,27 @@ rag-api/
 │           ├── product_document.py      # 상품 검색 Document 생성
 │           └── gentleness.py            # 모든 증상 0인 경우의 저자극 평가
 ├── data/
-│   ├── products.csv                    # 상품 데이터
-│   └── index/
-│       ├── vectors.npy                 # 상품 임베딩 벡터
-│       ├── records.json                # 벡터 대응 상품 레코드
-│       └── meta.json                   # 인덱스 메타데이터
+│   ├── products.csv                    # 최근 정상 동기화된 로컬 상품 데이터
+│   ├── index/                          # 현재 벡터 인덱스 (자동 생성)
+│   │   ├── vectors.npy                 # 상품 임베딩 벡터
+│   │   ├── records.json                # 벡터 대응 상품 레코드
+│   │   └── meta.json                   # 인덱스 메타데이터
+│   └── backup/                         # 직전 정상 데이터 1세트 (자동 생성)
+│       ├── products.csv                # 직전 로컬 상품 데이터
+│       └── index/                      # 직전 벡터 인덱스
 ├── frontend/
 │   └── index.html                      # 데모 입력 및 추천 결과 표시
 ├── tests/
-│   └── test_demo_pipeline.py           # 추천 파이프라인·API 테스트
+│   ├── test_demo_pipeline.py           # 추천 파이프라인·API 테스트
+│   └── test_supabase_sync.py           # DB 동기화·안전장치 테스트
+├── .env.example                        # Supabase 환경변수 설정 예시
+├── SUPABASE_SYNC_README.md             # DB 동기화 기능 별도 상세 안내
 ├── requirements.txt                    # Python 의존성
-├── .gitignore                          # 가상환경·캐시·환경변수 제외
+├── .gitignore                          # 가상환경·환경변수·자동 생성 인덱스/백업 제외
 └── README.md
 ```
 
-각 디렉터리의 `__init__.py`는 Python 패키지 인식용 파일이다.
+각 디렉터리의 `__init__.py`는 Python 패키지 인식용 파일이다. `data/products.csv`는 유지하고, 자동 생성되는 `data/index/`와 `data/backup/`은 Git 추적에서 제외한다.
 
 ## 3. RAG 추천 구조
 
