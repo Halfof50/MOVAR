@@ -40,7 +40,9 @@ def load_products(csv_path=PRODUCTS_CSV) -> pd.DataFrame:
 def build_records(df: pd.DataFrame) -> list:
     # 알레르기 파생 정보는 넣지 않는다.
     # 별도 모듈(Allergy RAG)로 분리할 예정이고, 그전까지는 추천 경로에서 뺀다.
-    return [build_record(row, product_id=i + 1) for i, row in df.iterrows()]
+    return [build_record(row, product_id=(int(row["product_id"])
+            if "product_id" in df.columns and pd.notna(row["product_id"]) else i + 1))
+            for i, row in df.iterrows()]
 
 
 def main(argv=None):
