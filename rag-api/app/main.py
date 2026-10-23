@@ -19,6 +19,13 @@ JOBS = {}
 JOBS_LOCK = Lock()
 
 
+@app.on_event("startup")
+def sync_products_at_startup():
+    # RAG 내부 상품 동기화만 실행. 기존 추천 API/검색/LLM 코드는 변경하지 않는다.
+    from app.retrieval.supabase_sync import synchronize_products
+    synchronize_products()
+
+
 def require_demo_key(x_movar_demo_key: str | None = Header(default=None)):
     key = os.getenv("MOVAR_DEMO_KEY", "")
     if key and not secrets.compare_digest(x_movar_demo_key or "", key):
