@@ -16,3 +16,6 @@ __pycache__/
 # 임시 파일
 *.log
 .cache/
+
+data/index/
+data/backup/
