@@ -32,13 +32,21 @@ def _clean(value: str | None) -> str | None:
     return value or None
 
 
-async def search_hospitals(lat: float, lng: float, radius: int, query: Literal['피부과', '탈모'], size: int) -> HospitalList:
+async def search_hospitals(
+    lat: float | None, lng: float | None, radius: int, query: Literal['피부과', '탈모'], size: int, region: str | None = None,
+) -> HospitalList:
+    """Search near (lat, lng), nearest first. Without coordinates, search by region name (e.g. '강남구'); no distance then."""
     load_dotenv(Path(__file__).with_name('.env'))
     key = os.getenv('KAKAO_REST_API_KEY', '')
     if not key:
         raise HTTPException(503, {'code': 'HOSPITAL_NOT_CONFIGURED', 'message': '병원 검색 설정이 필요합니다.'})
 
-    params = {'query': query, 'x': lng, 'y': lat, 'radius': radius, 'sort': 'distance', 'size': size}
+    if lat is not None and lng is not None:
+        params = {'query': query, 'x': lng, 'y': lat, 'radius': radius, 'sort': 'distance', 'size': size}
+    elif region:
+        params = {'query': f'{region} {query}', 'size': size}
+    else:
+        raise HTTPException(422, {'code': 'HOSPITAL_LOCATION_REQUIRED', 'message': '위치(lat, lng)나 지역명(region)이 필요합니다.'})
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             response = await client.get(KAKAO_KEYWORD_URL, headers={'Authorization': f'KakaoAK {key}'}, params=params)

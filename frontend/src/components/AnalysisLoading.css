@@ -1,0 +1,21 @@
+.analysis-loading { width: 100%; max-width: 680px; margin: 0 auto; padding: 32px 12px; text-align: center; }
+.analysis-eyebrow { color: #657a98; font-size: .7rem; font-weight: 800; letter-spacing: .22em; margin-bottom: 12px; }
+.analysis-loading h1 { font-size: clamp(1.4rem, 3vw, 2rem); letter-spacing: -.05em; margin-bottom: 8px; }
+.analysis-loading h1:focus { outline: none; }
+.analysis-intro { font-size: .9rem; margin-bottom: 30px; }
+.analysis-lens { width: min(100%, 350px); aspect-ratio: 1; margin: 0 auto 32px; border: 1px solid #bacdd9; border-radius: 50%; padding: 10px; background: #edf3f8; box-shadow: 0 0 0 9px #e3edf5; }
+.analysis-photo { position: relative; width: 100%; height: 100%; overflow: hidden; border-radius: 50%; background: #102631; isolation: isolate; }
+.analysis-photo img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.analysis-grid { position: absolute; inset: 0; background-image: linear-gradient(#ffffff20 1px, transparent 1px), linear-gradient(90deg, #ffffff20 1px, transparent 1px); background-size: 27px 27px; pointer-events: none; }
+.analysis-laser { position: absolute; top: 0; left: 0; width: 100%; height: 3px; background: #c1fa32; box-shadow: 0 0 8px #c1fa32, 0 0 22px #c1fa3299; animation: movar-scan 2.4s ease-in-out infinite alternate; pointer-events: none; }
+.analysis-laser::before { content: ''; position: absolute; bottom: 3px; left: 0; width: 100%; height: 48px; background: linear-gradient(transparent, #c1fa3240); }
+@keyframes movar-scan { from { top: 4%; } to { top: 96%; } }
+.analysis-progress { width: min(100%, 350px); margin: 0 auto; }
+.analysis-status { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; color: #203343; font-size: .95rem; }
+.analysis-status span { color: #657a98; font-size: .8rem; font-variant-numeric: tabular-nums; }
+.analysis-track { height: 6px; overflow: hidden; border-radius: 99px; background: #dce6ee; }
+.analysis-track > div { height: 100%; background: #91b82e; border-radius: inherit; transition: width .1s linear; }
+.analysis-disclaimer { margin: 16px 0 22px; font-size: .78rem; }
+.analysis-cancel { background: transparent; font-size: .85rem; }
+@media (max-width: 480px) { .analysis-loading { padding: 20px 8px; } .analysis-lens { width: min(100%, 280px); } }
+@media (prefers-reduced-motion: reduce) { .analysis-laser { animation: none; top: 50%; } .analysis-track > div { transition: none; } }

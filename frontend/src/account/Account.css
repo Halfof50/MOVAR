@@ -1,0 +1,55 @@
+.account-form { display: grid; gap: 10px; margin: 24px 0; }
+.account-form label { font-weight: 600; }
+.account-form input { width: 100%; padding: 12px; border: 1px solid #ccd9e3; border-radius: 8px; min-height: 46px; background: white; }
+.account-form input:focus-visible { outline: 2px solid #287abe; outline-offset: 2px; }
+.account-form button { margin-top: 12px; }
+.account-small { font-size: 13px; margin: 16px 0 0; }
+.account-error { color: #a52929; }
+.account-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+.account-secondary { background: #edf3f8; }
+button { cursor: pointer; }
+button:disabled { opacity: .6; cursor: default; }
+.account button.text-link, .notice button.text-link { border: 0; background: transparent; padding: 0; }
+.history-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 16px; }
+.history-heading { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; font-size: 14px; margin-bottom: 14px; }
+.history-filename { overflow-wrap: anywhere; }
+.history-scores { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; margin: 16px 0; }
+.history-scores span { background: #f1f7f6; padding: 10px; border-radius: 8px; font-size: 14px; }
+.history-scores strong { display: block; }
+.care-priorities { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
+.care-priorities article { padding: 20px; background: #f1f7f6; border-radius: 12px; }
+.record-photo-placeholder { display: grid; place-items: center; min-height: 180px; padding: 20px; background: #f1f7f6; border-radius: 12px; text-align: center; overflow-wrap: anywhere; }
+@media (max-width: 600px) { .history-scores { grid-template-columns: repeat(2,minmax(0,1fr)); } .care-priorities { grid-template-columns: 1fr; } .account { flex-wrap: wrap; justify-content: flex-end; gap: 8px; } }
+
+/* Match the severity palette used by the detailed analysis report. */
+.history-scores .severity-0 { background: #e1effb; color: #214b72; }
+.history-scores .severity-1 { background: #fff0bf; color: #71520c; }
+.history-scores .severity-2 { background: #ffdbad; color: #804007; }
+.history-scores .severity-3 { background: #f8d5d9; color: #922e3e; }
+.history-card-link { display: block; color: inherit; background: #fff; cursor: pointer; transition: background-color 160ms ease, border-color 160ms ease; }
+.history-card-link:hover, .history-card-link:focus-visible { background: #f2f5f7; border-color: #d4dfe7; }
+.history-card-link:focus-visible { outline: 3px solid #287abe; outline-offset: 3px; }
+.record-analysis-date { margin: 0; color: #657a98; font-size: 14px; }
+@media (prefers-reduced-motion: reduce) { .history-card-link { transition: none; } }
+
+.nickname-card { overflow-wrap: anywhere; }
+.nickname-form { max-width: 560px; margin-bottom: 0; }
+.nickname-controls { display: flex; align-items: center; gap: 12px; }
+.nickname-controls input { flex: 1; min-width: 0; }
+.nickname-controls .button { margin-top: 0; white-space: nowrap; }
+.nickname-form .account-small { margin-top: 0; }
+.nickname-success { color: #256a4b; }
+.account .badge { overflow-wrap: anywhere; }
+@media (max-width: 480px) { .nickname-controls { flex-direction: column; align-items: stretch; } }
+
+.header .account { flex-wrap: wrap; justify-content: flex-end; gap: 10px; min-width: 0; }
+.account-name { font-size: 1.1rem; font-weight: 700; color: #214b72; overflow-wrap: anywhere; max-width: 240px; }
+.account-button { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 8px 15px; border: 1px solid #cddde9; border-radius: 10px; background: #eaf2f8; color: #214b72; font: inherit; font-size: .9rem; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.account-button-secondary { background: #fff; }
+.account-button:hover { background: #dceaf5; }
+.account-button:focus-visible { outline: 2px solid #287abe; outline-offset: 3px; }
+.field-help { margin: -4px 0 6px; font-size: 13px; color: #657a98; }
+.signup-confirmation { display: grid; gap: 14px; margin: 24px 0; overflow-wrap: anywhere; }
+.signup-confirmation p { margin: 0; }
+.signup-back { border: 0; background: transparent; justify-self: start; padding: 8px 0; font: inherit; }
+@media (max-width: 600px) { .header { flex-wrap: wrap; gap: 12px; } .header .account { margin-left: auto; } .account-name { font-size: 1.05rem; max-width: 100%; } .account-button { min-height: 44px; padding: 8px 12px; } }

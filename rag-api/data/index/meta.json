@@ -1,0 +1,6 @@
+{
+ "model": "jhgan/ko-sroberta-multitask",
+ "dim": 768,
+ "count": 146,
+ "built_at": "2026-10-02T13:00:00+00:00"
+}

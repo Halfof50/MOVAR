@@ -41,6 +41,24 @@ uv pip install -r requirements.txt
 이 설정은 본인 컴퓨터에서 접속하는 개발용 서버입니다.
 8000 포트를 이미 사용 중이면 기존 서버를 종료하거나 `--port 8001`로 실행하세요.
 
+## 전체 서버 실행 (외부 접속 포함)
+
+터미널을 서버마다 하나씩 열고, 아래 순서로 실행합니다. 모든 터미널은 켜 둔 채로 둡니다.
+
+| 순서 | 서버 | 포트 | 실행 (`E:\2026\MOVAR\backend`에서) |
+| --- | --- | --- | --- |
+| 0 | Ollama | 11434 | 보통 자동 실행. 꺼져 있으면 `ollama serve` |
+| 1 | 이미지 모델 서버 | 8001 | `.\run_ai_server.ps1` |
+| 2 | 추천 서버 | 8002 | `.\run_rag_server.ps1` |
+| 3 | backend | 8000 | `.\.venv\Scripts\activate` 후 `uvicorn main:app --host 0.0.0.0 --port 8000` |
+| 4 | 프론트(선택) | 5173 | `cd ..\frontend` 후 `npm run dev -- --host` |
+
+- 위 방식은 모두 `0.0.0.0`으로 열려서 다른 기기에서 이 PC의 IP로 접속할 수 있습니다. 이 PC 안에서만 쓰려면 `-BindHost 127.0.0.1`(스크립트)이나 `--host 127.0.0.1`(uvicorn)을 씁니다.
+- 각 서버는 `http://127.0.0.1:<포트>/health`로 확인합니다(backend는 `/docs`도 가능). **추천 서버를 켠 직후 첫 요청은 모델을 불러오느라 1~4분이 걸리니** 미리 한 번 호출해 둡니다.
+- `backend/.env`에 `MOVAR_VISION_API_BASE_URL=http://127.0.0.1:8001`, `MOVAR_API_BASE_URL=http://127.0.0.1:8002`가 있어야 합니다. 값을 바꾼 뒤에는 backend를 다시 시작합니다.
+- 공유기 포트포워딩은 **8000(backend)만** 합니다. 이미지·추천 서버(8001, 8002)는 인증이 없어서 인터넷에 열면 누구나 GPU를 쓸 수 있습니다. backend가 같은 PC에서 호출하므로 열 필요가 없습니다.
+- 외부 주소로 프론트를 열 때는 `frontend/.env`의 `VITE_API_BASE_URL`을 그 backend 주소로 바꾸고, backend의 CORS 허용 주소(`main.py`의 `allow_origins`)에 프론트 주소를 추가해야 합니다. 첫 실행 때 Windows 방화벽 허용 창이 뜨면 허용하세요.
+
 ## 확인 방법
 
 `/docs`에서 `GET /health` → `Try it out` → `Execute`를 누르면
@@ -87,7 +105,7 @@ DB 테이블과 데이터는 수정하지 않았습니다. 제품 수는 검증 
 
 - `GEMINI_API_KEY`: LLM 리포트 생성(`POST /reports`, `POST /reports/mock`). 모델은 `GEMINI_MODEL`로 바꿀 수 있습니다.
 - `KAKAO_REST_API_KEY`: 주변 병원 검색(`GET /hospitals`).
-- `MOVAR_API_BASE_URL`: 추천 모델 서버(RunPod) 주소(`POST /recommendations`).
+- `MOVAR_API_BASE_URL`: 추천 모델 서버(`rag-api`, 로컬 8002번) 주소(`POST /recommendations`).
 - `MOVAR_VISION_API_BASE_URL`: 이미지 모델 서버(`ai/inference`) 주소(`POST /scalp-analyses`). backend와 포트가 겹치지 않게 다른 포트(예: 8001)로 실행합니다.
 
 로그인 토큰 검증(`GET /me`)은 위의 `SUPABASE_KEY`를 그대로 사용합니다.

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MOVAR | 두피 기반 상품 추천 데모</title>
+  <style>
+    :root{font-family:Pretendard,system-ui,-apple-system,'Segoe UI',sans-serif;color:#172b38;background:#f5f9fb}
+    *{box-sizing:border-box}body{margin:0}main{max-width:1060px;margin:38px auto;padding:0 20px}
+    header{margin-bottom:25px}h1{font-size:30px;margin:8px 0}.muted{color:#617683;line-height:1.5}
+    .pill{display:inline-block;background:#deeff5;padding:6px 12px;border-radius:30px;font-size:12px;font-weight:700;color:#087a8a}
+    .panel{background:white;border:1px solid #e0e9ed;border-radius:16px;padding:25px;margin-bottom:20px;box-shadow:0 5px 18px #b7c6cb19}
+    h2{font-size:19px;margin:0 0 16px}.fields{display:grid;grid-template-columns:repeat(3,1fr);gap:15px}
+    label{font-size:14px;display:flex;flex-direction:column;gap:8px;font-weight:650}
+    [hidden]{display:none!important}.category-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+    .category-option{display:flex;flex-direction:row;align-items:center;gap:9px;padding:12px;border:1px solid #ccdbe0;border-radius:10px;cursor:pointer;background:#f9fcfd}
+    .category-option:has(input:checked){border-color:#087f88;background:#e8f6f5}.category-option input{width:auto;accent-color:#087f88}
+    .help{color:#617683;font-size:13px;margin:10px 0 0;line-height:1.5}.advanced{margin-top:17px;color:#547080;font-size:13px}
+    .advanced summary{cursor:pointer}.advanced label{max-width:340px;margin-top:12px}
+    input,select{font:inherit;padding:11px 12px;border:1px solid #ccdbe0;border-radius:9px;background:white;width:100%}
+    button{background:#097f88;border:0;color:white;font-size:16px;font-weight:650;border-radius:10px;padding:14px 23px;cursor:pointer}
+    button:disabled{opacity:.55;cursor:progress}.results{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:17px}
+    article{border:1px solid #dfebec;border-radius:13px;padding:14px;background:#fff;display:flex;flex-direction:column;gap:8px}
+    .picture{height:180px;display:flex;align-items:center;justify-content:center;background:#f5f8f9;border-radius:9px;overflow:hidden}
+    .picture img{width:100%;height:100%;object-fit:contain}small{font-size:13px;color:#547080}
+    .score{font-size:13px;color:#0d7b82;font-weight:700}.price{font-size:19px;font-weight:800}
+    .link{color:#0b7078;font-weight:700;text-decoration:underline;margin-top:auto}
+    #status{padding:12px 0;min-height:22px} .error{color:#ac283c} .success{color:#0b7678}
+    @media(max-width:770px){.fields,.results,.category-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(max-width:520px){.fields,.results,.category-grid{grid-template-columns:1fr}h1{font-size:25px}}
+  </style>
+</head>
+<body><main>
+<header><span class="pill">MOVAR · 중간발표 데모</span><h1>AI 두피 맞춤형 상품 추천</h1>
+<p class="muted">비전 모델 대신 두피 증상 6종을 직접 입력합니다. 서버의 Hybrid RAG와 Qwen2.5 14B가 실제 상품을 평가합니다.</p></header>
+<form id="form">
+<section class="panel"><h2>1. 두피 진단 결과 (Level 0~3)</h2><div class="fields" id="symptoms"></div></section>
+<section class="panel"><h2>2. 추천할 상품 카테고리 (필수)</h2>
+<div class="category-grid" id="categories">
+<label class="category-option"><input type="checkbox" value="shampoo" checked/>샴푸</label>
+<label class="category-option"><input type="checkbox" value="scaler"/>스케일러</label>
+<label class="category-option"><input type="checkbox" value="treatment"/>트리트먼트</label>
+<label class="category-option"><input type="checkbox" value="tonic"/>토닉</label>
+</div><p class="help">필요한 종류만 선택하세요. 선택하지 않은 카테고리의 상품은 추천하지 않습니다. 여러 종류를 선택하면 선택한 종류 전체에서 상위 3개를 추천합니다.</p></section>
+<section class="panel"><h2>3. 사용자 정보 (선택)</h2><div class="fields">
+<label>연령대<select id="age"><option value="">미제공</option><option>10대</option><option>20대</option><option>30대</option><option>40대</option><option>50대</option><option>60대 이상</option><option value="__custom__">직접 입력</option></select><input id="age-custom" type="text" maxlength="40" placeholder="예: 70대, 25세" aria-label="연령대 직접 입력" hidden/></label>
+<label>머리 감는 주기<select id="wash"><option value="">미제공</option><option>하루 2회</option><option>하루 1회</option><option>2일 1회</option><option>3일 1회</option><option value="__custom__">직접 입력</option></select><input id="wash-custom" type="text" maxlength="40" placeholder="예: 주 2회, 4일 1회" aria-label="머리 감는 주기 직접 입력" hidden/></label>
+<label>최대 가격 (원)<input id="price" type="number" min="1" placeholder="예: 30000"/></label>
+</div>
+<details class="advanced"><summary>고급 설정 · 외부 시연용 접근키 (필요한 경우만)</summary>
+<label>시연 접근키<input id="access-key" type="password" autocomplete="off" placeholder="설정하지 않았다면 비워 두세요"/></label>
+<p class="help">서버에 MOVAR_DEMO_KEY 환경변수를 지정한 경우에만 사용됩니다. 로컬 테스트에서는 빈칸으로 두세요.</p>
+</details></section>
+<div><button id="go" type="submit">상품 추천 실행</button><p id="status" class="muted" role="status" aria-live="polite"></p></div>
+</form>
+<section class="panel" id="result-section" hidden><h2>추천 결과</h2><p class="muted" id="summary"></p><div class="results" id="results"></div></section>
+</main>
+<script>
+const symptomDefs=[['micro_keratin','미세각질'],['excess_sebum','피지과다'],['follicular_erythema','모낭사이홍반'],['follicular_pustule','모낭홍반농포'],['dandruff','비듬'],['hair_loss','탈모']];
+const container=document.getElementById('symptoms');
+symptomDefs.forEach(([key,label])=>{let l=document.createElement('label');l.textContent=label;let sel=document.createElement('select');sel.id=key;for(let i=0;i<=3;i++){let o=document.createElement('option');o.value=i;o.textContent=`Level ${i} · ${['없음','경증','중등도','중증'][i]}`;sel.append(o)}l.append(sel);container.append(l)});
+const status=document.getElementById('status'),btn=document.getElementById('go'),cards=document.getElementById('results');
+const categoryNames={shampoo:'샴푸',scaler:'스케일러',treatment:'트리트먼트',tonic:'토닉'};
+function bindCustomSelect(selectId,inputId){
+ const sel=document.getElementById(selectId),input=document.getElementById(inputId);
+ function toggle(){const isCustom=sel.value==='__custom__';input.hidden=!isCustom;input.required=isCustom;if(!isCustom)input.value='';}
+ sel.addEventListener('change',toggle);toggle();
+}
+bindCustomSelect('age','age-custom');bindCustomSelect('wash','wash-custom');
+function chosenValue(selectId,inputId){
+ const select=document.getElementById(selectId);
+ if(select.value!=='__custom__')return select.value;
+ const value=document.getElementById(inputId).value.trim();
+ if(!value)throw Error(`${selectId==='age'?'연령대':'머리 감는 주기'}를 직접 입력해 주세요.`);
+ return value;
+}
+function selectedCategories(){return [...document.querySelectorAll('#categories input[type=checkbox]:checked')].map(el=>el.value);}
+
+function message(m,isError=false){status.textContent=m;status.className=isError?'error':'muted'}
+const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+async function requestJson(url,opts){const headers={...(opts?.headers||{})};const demoKey=document.getElementById('access-key').value.trim();if(demoKey)headers['X-Movar-Demo-Key']=demoKey;const response=await fetch(url,{...opts,headers});let data=await response.json();if(!response.ok)throw Error(typeof data.detail==='string'?data.detail:(data.error||'서버 요청 실패'));return data;}
+function addText(parent,tag,text,className){let e=document.createElement(tag);e.textContent=text??'';if(className)e.className=className;parent.append(e);return e}
+function render(data){document.getElementById('result-section').hidden=false;cards.replaceChildren();let count=data.candidate_count;
+ document.getElementById('summary').textContent=`선택 카테고리: ${selectedCategories().map(c=>categoryNames[c]).join(', ')} · ${count}개 후보 검색 → ${data.llm_calls}회 LLM 평가 → 상위 ${data.recommendations.length}개 상품 선정 · 소요 ${(data.timing_ms?.total_ms/1000||0).toFixed(1)}초`;
+ if(!data.recommendations.length)addText(cards,'p','선택된 추천 상품이 없습니다. 가격 조건을 조정해 보세요.');
+ for(const r of data.recommendations){let card=document.createElement('article');addText(card,'strong',`#${r.rank} · ${r.category_kr}`);
+ let fig=document.createElement('div');fig.className='picture';if(r.image&&/^https:\/\//.test(r.image)){let img=document.createElement('img');img.src=r.image;img.alt=r.product_name;img.loading='lazy';fig.append(img)}else{fig.textContent='상품 이미지 없음'}card.append(fig);
+ addText(card,'strong',r.product_name);addText(card,'div',r.price==null?'가격 정보 없음':`${Number(r.price).toLocaleString('ko-KR')}원`,'price');
+ addText(card,'small',`평점 ${r.rating??'-'} · 리뷰 ${r.reviews??0}개`);
+ if(r.llm_score!=null)addText(card,'div',`Qwen 적합도 평가: ${r.llm_score}점`,'score');
+ addText(card,'p',r.reason||'');if(r.link&&/^https:\/\//.test(r.link)){let a=addText(card,'a','상품 상세 보기','link');a.href=r.link;a.target='_blank';a.rel='noopener noreferrer'}cards.append(card)} }
+document.getElementById('form').addEventListener('submit',async ev=>{ev.preventDefault();btn.disabled=true;document.getElementById('result-section').hidden=true;
+ try{let symptoms=Object.fromEntries(symptomDefs.map(([key])=>[key,Number(document.getElementById(key).value)]));
+ const categories=selectedCategories();if(!categories.length)throw Error('추천할 상품 카테고리를 하나 이상 선택해 주세요.');
+ let user_info={};const age=chosenValue('age','age-custom'),wash=chosenValue('wash','wash-custom');
+ if(age)user_info.age_group=age;if(wash)user_info.wash_frequency=wash;
+ if(document.getElementById('price').value)user_info.max_price=Number(document.getElementById('price').value);
+ message('추천 요청을 접수하고 있습니다…');const job=await requestJson('/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({symptoms,user_info,categories})});
+ for(let attempt=0;attempt<240;attempt++){let r=await requestJson(`/jobs/${encodeURIComponent(job.job_id)}`);if(r.state==='done'){render(r.result);message('추천이 완료되었습니다.');return}if(r.state==='error')throw Error(r.error);message(`RAG 및 Qwen 분석 중… (${r.state==='queued'?'대기 중':'실행 중'})`);await pause(1500)}throw Error('분석 시간이 길어졌습니다. 서버 상태를 확인하세요.');
+ }catch(err){message(`오류: ${err.message}`,true)}finally{btn.disabled=false}
+});
+</script>
+</body></html>

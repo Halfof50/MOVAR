@@ -27,7 +27,11 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=['http://localhost:5173', 'http://127.0.0.1:5173'],
+    allow_origins=[
+        'http://localhost:5173', 'http://127.0.0.1:5173',
+        # Public address of the frontend. Keep only the one that is actually used (scheme, host and port must match exactly).
+        'http://devine.my:5173', 'http://devine.my', 'https://devine.my',
+    ],
     allow_methods=['GET', 'POST'],
     allow_headers=['Authorization', 'Content-Type'],
 )
@@ -131,13 +135,14 @@ async def create_mock_report(questionnaire: dict[str, str] = Body(default_factor
 
 @app.get('/hospitals', response_model=HospitalList, tags=['병원'], summary='현재 위치 기준 주변 병원 검색')
 async def hospitals(
-    lat: float = Query(..., ge=-90, le=90, description='위도'),
-    lng: float = Query(..., ge=-180, le=180, description='경도'),
+    lat: float | None = Query(None, ge=-90, le=90, description='위도. lat·lng가 있으면 가까운 순으로 검색'),
+    lng: float | None = Query(None, ge=-180, le=180, description='경도'),
+    region: str | None = Query(None, min_length=2, max_length=40, description='지역명(예: 강남구). 좌표가 없을 때 사용하며 거리는 나오지 않음'),
     radius: int = Query(5000, ge=100, le=20000, description='검색 반경(m)'),
     query: Literal['피부과', '탈모'] = Query('피부과', description='검색 키워드'),
     size: int = Query(15, ge=1, le=15),
 ):
-    return await search_hospitals(lat, lng, radius, query, size)
+    return await search_hospitals(lat, lng, radius, query, size, region)
 
 
 @app.get('/products', tags=['제품'], summary='DB 연결 검증용 제품 목록 조회')
