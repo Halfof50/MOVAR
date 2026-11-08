@@ -62,7 +62,9 @@ async function authHeader(): Promise<Record<string, string>> {
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   let response: Response
   try {
-    response = await fetch(`${API_BASE}${path}`, { ...init, headers: { ...(await authHeader()), ...init.headers } })
+    const authorization = await authHeader()
+    init.signal?.throwIfAborted()
+    response = await fetch(`${API_BASE}${path}`, { ...init, headers: { ...authorization, ...init.headers } })
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') throw error
     throw new ApiError('서버에 연결하지 못했어요. 서버가 켜져 있는지 확인한 뒤 다시 시도해주세요.', 'NETWORK', 0)

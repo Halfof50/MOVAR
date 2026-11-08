@@ -1,3 +1,4 @@
+import { runSampleAnalysis, isSampleAnalysis } from '../services/sampleAnalysis'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import './CapturePage.css'
@@ -45,6 +46,7 @@ export default function CapturePage({ onAnalysisComplete }: { onAnalysisComplete
   }, [navigate, onAnalysisComplete, photo])
   const runAnalysis = useCallback((signal: AbortSignal) => {
     if (!photo) return Promise.reject(new Error('사진을 먼저 선택해주세요.'))
+    if (isSampleAnalysis) return runSampleAnalysis(signal)
     return api.analyze(photo.blob, photo.name, { categories: [category], answers, signal })
   }, [photo, category, answers])
 
@@ -213,6 +215,7 @@ export default function CapturePage({ onAnalysisComplete }: { onAnalysisComplete
         <h1>나의 두피를 담아보세요</h1>
         <p>카메라로 촬영하거나, 저장된 두피 사진을 선택하세요.</p>
       </section>
+      {isSampleAnalysis && <p className="notice">샘플 체험 모드 · 촬영한 사진으로 화면 흐름을 확인할 수 있어요. 실제 AI 분석과 기록 저장은 진행하지 않아요.</p>}
       {error && <div className="capture-error" role="alert">{error}</div>}
       <div className="capture-grid">
         <section className="card capture-panel" aria-labelledby="camera-title">
@@ -264,14 +267,14 @@ export default function CapturePage({ onAnalysisComplete }: { onAnalysisComplete
           <p className="capture-selected-meta">{photo ? `${photo.width} × ${photo.height}px · ${(photo.size / 1024 / 1024).toFixed(2)}MB` : '사진이 준비되면 분석을 시작할 수 있어요.'}</p>
         </div>
         <button className="button capture-analyze" disabled={!photo || busy} onClick={() => { if (!photo || busy) return; stopCamera(); setAnalyzing(true) }}>분석 시작</button>
-        <p className="capture-hint">분석에는 20초 안팎이 걸려요.</p>
+        <p className="capture-hint">{isSampleAnalysis ? '약 1.5초 후 샘플 분석 결과를 확인할 수 있어요.' : '서버 상황에 따라 분석에 몇 분이 걸릴 수 있어요.'}</p>
         <div className="capture-photo-tools" style={{ visibility: photo ? 'visible' : 'hidden' }}>
           <a className="text-link" href={photo?.url} download={photo?.name} tabIndex={photo ? 0 : -1}>사진 다운로드</a>
           <button className="capture-remove" onClick={removePhoto} disabled={!photo || busy}>사진 지우기</button>
         </div>
       </section>
       <section className="notice capture-notice">
-        <strong>사진은 분석을 위해 서버로 전송되고, 분석이 끝나면 서버에 저장하지 않아요.</strong>
+        <strong>{isSampleAnalysis ? '샘플 체험에서는 사진을 서버로 전송하지 않아요.' : '사진은 분석을 위해 서버로 전송되고, 분석이 끝나면 서버에 저장하지 않아요.'}</strong>
         <p>분석한 사진은 결과 화면에서 확인할 수 있고 새로고침하면 사라져요. 보관하려면 사진을 다운로드해주세요. 분석 결과는 의료적 진단이 아니에요.</p>
         <p>USB 전자현미경이 카메라 목록에 나타나지 않으면 전용 프로그램으로 촬영한 사진을 선택해주세요.</p>
       </section>

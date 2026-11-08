@@ -1,3 +1,4 @@
+import SymptomTrend from '../components/SymptomTrend'
 import { isLocalAuth } from '../services/authMode'
 import NicknameForm from '../components/NicknameForm'
 import { useState } from 'react'
@@ -18,6 +19,7 @@ export default function MyPage() {
     <section className="page-heading"><p className="eyebrow">MY MOVAR</p><h1>{user.name}님의 마이페이지</h1><p>{user.email}</p></section>
     {isLocalAuth && <p className="notice">로컬 시연 모드 · 계정은 이 브라우저에 저장돼요. 분석 기록은 서버 메모리에 임시로 보관되어 서버를 다시 켜면 사라져요.</p>}
     <NicknameForm />
+    <SymptomTrend />
     <section className="card"><h2>나의 분석 기록 <span className="badge">{records.length}건</span></h2><p>최신 기록부터 표시해요. 새 분석을 하면 이곳에 자동으로 저장돼요.</p>
       <div className="account-actions"><Link className="button" to="/capture">새 분석하기</Link><Link className="button" to="/care">맞춤 케어 보기</Link><button className="button account-secondary" onClick={sample} disabled={busy || !!historyError}>{busy ? '추가 중… (20초 안팎)' : '체험용 기록 추가'}</button></div>
       <p className="account-small">날짜와 항목별 결과, 리포트를 저장해요. 원본 사진은 저장하지 않아요. 체험용 기록은 사진 없이 만든 샘플이라 실제 분석이 아니에요.</p>

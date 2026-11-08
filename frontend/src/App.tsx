@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { BrowserRouter, Link, Navigate, Route, Routes } from 'react-router'
 import ResultsPage from './pages/ResultsPage'
 import type { AnalysisPhoto } from './data/scalpResults'
@@ -15,6 +15,8 @@ import AccountProvider from './account/AccountProvider'
 import { useAccount, errorMessage } from './account/AccountContext'
 import type { AnalysisResult } from './services/api'
 import './account/Account.css'
+
+const AnalysisPreview = import.meta.env.DEV ? lazy(() => import('./dev/AnalysisPreview')) : null
 
 function SessionRoutes() {
   const { user, analysisSaved } = useAccount()
@@ -40,8 +42,9 @@ function SessionRoutes() {
     <Route path="signup" element={<SignUpPage />} />
     <Route path="hospitals" element={<HospitalsPage />} />
     <Route path="capture" element={<CapturePage onAnalysisComplete={completeAnalysis} />} />
+    {AnalysisPreview && <Route path="dev/analysis-preview" element={<Suspense fallback={<p role="status">미리보기를 준비하고 있어요…</p>}><AnalysisPreview /></Suspense>} />}
     <Route path="results" element={<div className="stack">
-      {result && (user ? <div className="notice" role="status">{saveError ? <p role="alert">{saveError}</p> : <>마이페이지에 분석 기록을 저장했어요. <Link to="/mypage">기록 보기 →</Link></>}</div> : <div className="notice">게스트 분석은 기록으로 저장되지 않아요. <Link to="/login">로그인 후 새 분석부터 기록하기 →</Link></div>)}
+      {result && (result.analysis_id === null ? <div className="notice" role="status">샘플 분석 결과예요. 실제 사진 분석 결과가 아니며 마이페이지에 저장되지 않아요.</div> : user ? <div className="notice" role="status">{saveError ? <p role="alert">{saveError}</p> : <>마이페이지에 분석 기록을 저장했어요. <Link to="/mypage">기록 보기 →</Link></>}</div> : <div className="notice">게스트 분석은 기록으로 저장되지 않아요. <Link to="/login">로그인 후 새 분석부터 기록하기 →</Link></div>)}
       <ResultsPage photo={resultPhoto} result={result ?? undefined} />
     </div>} />
     <Route path="care" element={<CarePage />} />

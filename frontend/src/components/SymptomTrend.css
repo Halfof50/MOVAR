@@ -1,0 +1,25 @@
+.trend-heading { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+.trend-heading h2 { margin:0; }
+.trend-disclaimer { padding:12px 16px; border-radius:10px; background:#f0f5fa; color:#526981; font-size:14px; }
+.trend-filters { display:flex; flex-wrap:wrap; gap:8px; margin:22px 0 16px; }
+.trend-filters button { display:inline-flex; align-items:center; gap:7px; border:1px solid #cedce7; background:white; color:#526981; border-radius:24px; padding:10px 14px; min-height:44px; font:inherit; font-size:14px; cursor:pointer; }
+.trend-filters button[aria-pressed=true] { background:#eaf3fb; border-color:#287abe; color:#214b72; font-weight:700; }
+.trend-filters button:focus-visible, .trend-detail select:focus-visible, .trend-scroll:focus-visible { outline:3px solid #287abe; outline-offset:3px; }
+.trend-filters button span,.trend-detail li>span:first-child { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+.trend-direction { color:#657a98; font-size:13px; }
+.trend-scroll { overflow-x:auto; }
+.trend-svg { display:block; width:100%; min-width:600px; }
+.trend-svg text { font-size:13px; fill:#526981; }
+.trend-detail { background:#f5f8fb; padding:18px; border-radius:12px; }
+.trend-detail label { display:flex; align-items:center; gap:12px; flex-wrap:wrap; font-weight:700; }
+.trend-detail select { padding:8px 12px; border:1px solid #cedce7; border-radius:8px; background:white; color:#214b72; font:inherit; }
+.trend-detail ul { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px 24px; padding:0; list-style:none; margin-bottom:0; }
+.trend-detail li { display:flex; align-items:center; gap:8px; font-size:14px; flex-wrap:wrap; }
+.trend-detail strong { margin-left:auto; }
+.trend-table { margin-top:18px; }
+.trend-table summary { cursor:pointer; padding:8px 0; }
+.trend-table table { width:100%; border-collapse:collapse; font-size:14px; white-space:nowrap; }
+.trend-table th,.trend-table td { padding:12px; text-align:center; border-bottom:1px solid #dce5ee; }
+.trend-table caption { text-align:left; padding:12px 0; color:#657a98; }
+.trend-empty { padding:60px 16px; text-align:center; background:#f5f8fb; border-radius:12px; }
+@media(max-width:600px) { .trend-detail ul { grid-template-columns:1fr; } .trend-filters button { padding:9px 12px; } }
