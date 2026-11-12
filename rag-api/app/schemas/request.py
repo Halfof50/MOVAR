@@ -15,6 +15,7 @@ class Profile(BaseModel):
     age_group: str | None = None
     wash_frequency: str | None = None
     max_price: int | None = Field(default=None, ge=1)
+    allergies: list[str] = Field(default_factory=list, max_length=8)
 
 
 Category = Literal["shampoo", "scaler", "treatment", "tonic"]
