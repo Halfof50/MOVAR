@@ -1,0 +1,10 @@
+{
+  "format": "products-with-variants-v1",
+  "files": {
+    "05_products_for_db.csv": "b8d01b1c33e24adf564910fe9616bd8d1c8ff8820fa615df07f484d5f22ba003",
+    "05_product_variants_for_db.csv": "bdcb6c392449ed37805800f02626ba51bdf38fa8dbb45023266e0e50ee087dde",
+    "05_ingredients_for_db.csv": "f8916fcfc4d3be909de138917d3561699036f6ecbb48e76b89d951a0a98700ed",
+    "05_variant_ingredients_for_db.csv": "b5a10bcc0913781762598911d82442170157b95a6be12d8953d49ce44c91445d",
+    "05_parse_review.csv": "336863cf3895118c2e409d09e95e6925dfb60f98b47e39ec371eda76ab79a7e3"
+  }
+}
