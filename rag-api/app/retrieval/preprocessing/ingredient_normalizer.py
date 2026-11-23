@@ -26,13 +26,17 @@ ALIASES = {
     "클림바졸":       ["클림바졸"],
     "티트리":         ["티트리잎오일", "티트리잎추출물", "티트리오일", "티트리"],
     "카페인":         ["카페인"],
-    "병풀":           ["마데카소사이드", "아시아티코사이드", "병풀추출물", "병풀잎추출물",
-                       "병풀꽃/잎/줄기추출물", "센텔라아시아티카"],
+    "병풀": ["병풀추출물", "병풀잎추출물", "병풀꽃/잎/줄기추출물", "센텔라아시아티카"],
+    "마데카소사이드": ["마데카소사이드", "아시아티코사이드"],
     "다이포타슘글리시리제이트": ["다이포타슘글리시리제이트", "다이포타슘글리시리제이트액",
                                 "글리시리제이트", "글리시리진"],
     "유레아":         ["유레아", "우레아"],
     "글라이콜릭애씨드": ["글라이콜릭애씨드"],
     "락틱애씨드":     ["락틱애씨드", "소듐락테이트"],
+    "판테놀": ["판테놀"],
+    "알란토인": ["알란토인"],
+    "알로에베라": ["알로에베라잎추출물", "알로에베라잎즙", "알로에베라잎수"],
+    "세라마이드NP": ["세라마이드엔피", "세라마이드NP", "Ceramide NP"],
 }
 
 # 이름만 비슷하고 작용이 다른 성분. 이 문자열을 포함한 토큰은 매칭에서 제외한다.
@@ -105,11 +109,21 @@ def match_canonical(tokens) -> set:
     for t in tokens:
         if any(ex in t for ex in EXCLUSIONS):
             continue
+
         for canon, names in ALIASES.items():
             if canon in found:
                 continue
-            if any(n in t for n in names):
+
+            if canon == "판테놀" and "덱스판테놀" in t:
+                continue
+
+            if any(n.lower().replace(" ", "") in t.lower().replace(" ", "")
+                   for n in names):
                 found.add(canon)
+
+    if "덱스판테놀" in found:
+        found.discard("판테놀")
+
     return found
 
 
