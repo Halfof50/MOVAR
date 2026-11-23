@@ -34,7 +34,7 @@ RULES = {
     "징크피리치온":   ({"dandruff": 1.0, "hair_loss": 0.5},    ["S2", "S3", "S1"]),
     "피록톤올아민":   ({"dandruff": 1.0},                       ["S2", "S3"]),
     "클림바졸":       ({"dandruff": 1.0},                       ["S3"]),
-    "티트리":         ({"dandruff": 0.6, "excess_sebum": 0.3},  ["S4"]),
+    "티트리":         ({"dandruff": 0.6, "excess_sebum": 0.3, "follicular_pustule": 0.3},  ["S4"]),
 
     # 미세각질
     "살리실릭애씨드": ({"micro_keratin": 0.5, "dandruff": 0.3, "hair_loss": 0.5},
@@ -47,7 +47,12 @@ RULES = {
     "나이아신아마이드": ({"excess_sebum": 0.5, "hair_loss": 0.5}, ["S6", "S1"]),
 
     # 진정 — 모낭사이홍반 / 모낭홍반농포
-    "병풀":           ({"follicular_erythema": 0.5, "follicular_pustule": 0.5}, ["S7"]),
+    "병풀": ({"follicular_erythema": 0.3, "follicular_pustule": 0.3}, ["S7"]),
+    "마데카소사이드": ({"follicular_erythema": 0.5, "follicular_pustule": 0.3}, ["S7"]),
+    "판테놀": ({"follicular_erythema": 0.3, "follicular_pustule": 0.3}, ["S16"]),
+    "알란토인": ({"follicular_erythema": 0.3}, ["S16"]),
+    "알로에베라": ({"follicular_erythema": 0.3}, ["S16"]),
+    "세라마이드NP": ({"follicular_erythema": 0.3}, ["S16"]),
     "다이포타슘글리시리제이트": ({"follicular_erythema": 0.3, "follicular_pustule": 0.3},
                                 ["S11"]),
 
@@ -68,6 +73,7 @@ HAIR_LOSS_COMBOS = [
 
 COUNT_BONUS = 0.1
 
+
 SOURCES = {
     "S1":  "식약처 기능성화장품 심사 규정 탈모 증상 완화 고시 성분 조합",
     "S2":  "Piroctone olamine+salicylic acid vs zinc pyrithione 비교 임상 (PubMed 18503415)",
@@ -84,6 +90,7 @@ SOURCES = {
     "S13": "Urea·salicylic acid·glycolic acid 조합 두피 각질 임상",
     "S14": "AHA(glycolic/lactic acid) 각질 탈락 촉진 작용",
     "S15": "Lactic acid 체외 각질세포 응집력 감소 연구",
+    "S16": ("피부 보습·보호 및 장벽 관리 관련 보조 성분. " "모낭사이홍반의 직접 개선 임상 근거는 아님."),
 }
 
 
