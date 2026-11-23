@@ -1,5 +1,5 @@
 import { runSampleAnalysis, isSampleAnalysis } from '../services/sampleAnalysis'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import './CapturePage.css'
 import { useNavigate } from 'react-router'
@@ -38,6 +38,13 @@ export default function CapturePage({ onAnalysisComplete }: { onAnalysisComplete
   const [questions, setQuestions] = useState<Question[]>([])
   const [questionsError, setQuestionsError] = useState(false)
   const [answers, setAnswers] = useState<Answers>({})
+  const [allergyText, setAllergyText] = useState('')
+  const [showDevice, setShowDevice] = useState(false)
+  const phoneCamera = useRef<HTMLInputElement>(null)
+  const allergies = useMemo(() => Array.from(new Set(
+    allergyText.split(/[,，;；\n]+/).map(item => item.trim()).filter(Boolean)
+  )), [allergyText])
+  const allergyError = allergies.length > 8 || allergies.some(item => Array.from(item).length > 100)
   const [category, setCategory] = useState<Category>('shampoo')
   const completeAnalysis = useCallback((result: AnalysisResult) => {
     if (!photo) return
@@ -47,8 +54,8 @@ export default function CapturePage({ onAnalysisComplete }: { onAnalysisComplete
   const runAnalysis = useCallback((signal: AbortSignal) => {
     if (!photo) return Promise.reject(new Error('사진을 먼저 선택해주세요.'))
     if (isSampleAnalysis) return runSampleAnalysis(signal)
-    return api.analyze(photo.blob, photo.name, { categories: [category], answers, signal })
-  }, [photo, category, answers])
+    return api.analyze(photo.blob, photo.name, { categories: [category], answers: allergies.length ? { ...answers, allergies } : answers, signal })
+  }, [photo, category, answers, allergies])
 
   function releaseStream() {
     stream.current?.getTracks().forEach(track => track.stop())
@@ -218,7 +225,7 @@ export default function CapturePage({ onAnalysisComplete }: { onAnalysisComplete
       {isSampleAnalysis && <p className="notice">샘플 체험 모드 · 촬영한 사진으로 화면 흐름을 확인할 수 있어요. 실제 AI 분석과 기록 저장은 진행하지 않아요.</p>}
       {error && <div className="capture-error" role="alert">{error}</div>}
       <div className="capture-grid">
-        <section className="card capture-panel" aria-labelledby="camera-title">
+        <section className={`card capture-panel live-camera ${showDevice ? 'show-device' : ''}`} aria-labelledby="camera-title">
           <div className="capture-title"><h2 id="camera-title">01 · 두피 촬영</h2><span className="badge">{active ? '카메라 연결됨' : '연결 대기'}</span></div>
           <div className="camera-stage">
             <video ref={video} autoPlay muted playsInline hidden={!active} onLoadedData={() => setReady(true)} aria-label="카메라 실시간 미리보기" />
@@ -244,6 +251,11 @@ export default function CapturePage({ onAnalysisComplete }: { onAnalysisComplete
           <div className="photo-stage">
             {photo ? <img src={photo.url} alt="촬영하거나 선택한 두피 사진" /> : <div className="camera-empty"><span aria-hidden="true">＋</span><strong>사진이 이곳에 표시돼요</strong><p>촬영한 사진 또는 선택한 이미지를 확인하세요.</p></div>}
           </div>
+          <div className="phone-camera-actions">
+            <input type="file" hidden ref={phoneCamera} accept="image/*" capture="environment" onChange={selectFile} />
+            <button type="button" className="button" disabled={busy} onClick={() => phoneCamera.current?.click()}>휴대폰 카메라로 촬영</button>
+            <button type="button" className="button capture-secondary" aria-expanded={showDevice} onClick={() => { if (showDevice) stopCamera(); setShowDevice(!showDevice) }}>외부 카메라 {showDevice ? '닫기' : '연결 옵션'}</button>
+          </div>
           <label className="file-label" htmlFor="scalp-file">저장된 이미지 선택</label>
           <input id="scalp-file" type="file" accept="image/jpeg,image/png,image/webp" onChange={selectFile} disabled={busy} />
           <p className="capture-hint">JPG · PNG · WebP / 최대 10MB</p>
@@ -259,6 +271,12 @@ export default function CapturePage({ onAnalysisComplete }: { onAnalysisComplete
             {(Object.keys(CATEGORY_LABELS) as Category[]).map(key => <option key={key} value={key}>{CATEGORY_LABELS[key]}</option>)}
           </select>
         </div>
+        <div className="question">
+          <label htmlFor="allergies">피하고 싶은 알레르기 성분 (선택)</label>
+          <input id="allergies" disabled={isSampleAnalysis} value={allergyText} onChange={e => setAllergyText(e.target.value)} placeholder="예: 리날룰, 리모넨" aria-describedby="allergy-help" aria-invalid={allergyError} />
+          <small id="allergy-help">{isSampleAnalysis ? '샘플 모드에서는 성분 검사를 제공하지 않아요.' : '쉼표로 구분해 최대 8개, 성분당 100자까지 입력해주세요.'}</small>
+          {allergyError && <span role="alert">성분 개수나 글자 수를 줄여주세요.</span>}
+        </div>
         {questionsError ? <p className="capture-hint">문진 문항을 불러오지 못했어요. 문진 없이도 분석할 수 있어요.</p> : <Questionnaire questions={questions} answers={answers} onChange={setAnswers} />}
       </section>
       <section className="capture-submit" aria-label="선택한 사진 분석">
@@ -266,7 +284,7 @@ export default function CapturePage({ onAnalysisComplete }: { onAnalysisComplete
           <p className="capture-selected-name" title={photo?.name}>{photo ? photo.name : '사진을 촬영하거나 이미지를 선택해주세요.'}</p>
           <p className="capture-selected-meta">{photo ? `${photo.width} × ${photo.height}px · ${(photo.size / 1024 / 1024).toFixed(2)}MB` : '사진이 준비되면 분석을 시작할 수 있어요.'}</p>
         </div>
-        <button className="button capture-analyze" disabled={!photo || busy} onClick={() => { if (!photo || busy) return; stopCamera(); setAnalyzing(true) }}>분석 시작</button>
+        <button className="button capture-analyze" disabled={!photo || busy || allergyError} onClick={() => { if (!photo || busy) return; stopCamera(); setAnalyzing(true) }}>분석 시작</button>
         <p className="capture-hint">{isSampleAnalysis ? '약 1.5초 후 샘플 분석 결과를 확인할 수 있어요.' : '서버 상황에 따라 분석에 몇 분이 걸릴 수 있어요.'}</p>
         <div className="capture-photo-tools" style={{ visibility: photo ? 'visible' : 'hidden' }}>
           <a className="text-link" href={photo?.url} download={photo?.name} tabIndex={photo ? 0 : -1}>사진 다운로드</a>

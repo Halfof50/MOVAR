@@ -84,6 +84,13 @@ def parse_answers(raw: str | None) -> Answers:
 
     answers: Answers = {}
     for qid, value in data.items():
+        if qid == 'allergies':
+            if not isinstance(value, list) or len(value) > 8 or not all(
+                isinstance(item, str) and 0 < len(item.strip()) <= 100 for item in value
+            ):
+                raise _invalid('알레르기 성분은 최대 8개, 성분당 100자까지 입력해주세요.')
+            answers[qid] = list(dict.fromkeys(item.strip() for item in value))
+            continue
         question = _BY_ID.get(qid)
         if question is None:
             raise _invalid(f'알 수 없는 문항입니다: {qid}')
@@ -103,6 +110,7 @@ def parse_answers(raw: str | None) -> Answers:
 def to_user_info(answers: Answers) -> UserInfo | None:
     """The part of the answers the recommendation model understands."""
     info = UserInfo(
+        allergies=answers.get('allergies') or None,
         age_group=answers.get('age_group'),
         wash_frequency=answers.get('wash_frequency'),
         max_price=_BUDGET.get(answers.get('budget', '')),
@@ -114,6 +122,8 @@ def to_report_answers(answers: Answers) -> dict[str, str]:
     """Question label -> answer label, as readable text for the LLM report."""
     result = {}
     for qid, value in answers.items():
+        if qid == 'allergies':
+            continue
         question = _BY_ID[qid]
         labels = {o.value: o.label for o in question.options}
         values = value if isinstance(value, list) else [value]

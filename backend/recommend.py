@@ -37,6 +37,7 @@ class Symptoms(BaseModel):
 
 
 class UserInfo(BaseModel):
+    allergies: list[Annotated[str, Field(min_length=1, max_length=100)]] | None = Field(None, max_length=8)
     age_group: str | None = Field(None, max_length=20, examples=['20대'])
     wash_frequency: str | None = Field(None, max_length=20, examples=['하루 1회'])
     max_price: int | None = Field(None, gt=0, description='최대 희망 가격(원)')
@@ -53,6 +54,7 @@ class RecommendRequest(BaseModel):
 # ---- response ---------------------------------------------------------------
 
 class RecommendedProduct(BaseModel):
+    allergy_risk: bool | None = None
     rank: int
     product_id: int
     product_name: str

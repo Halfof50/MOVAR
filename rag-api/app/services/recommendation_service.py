@@ -11,7 +11,7 @@ from app.llm.evidence import evidence_note
 from app.retrieval.preprocessing.gentleness import gentle_reason
 from app.retrieval.query_builder import normalize_levels, ranked_symptoms
 from app.retrieval.retriever import Retriever
-
+from allergy.service import attach_allergy_to_top3
 
 class RecommendationService:
     def __init__(self, retriever=None, llm=None, backend="auto"):
@@ -24,7 +24,8 @@ class RecommendationService:
                   use_llm: bool = True):
         started = time.perf_counter()
         levels = normalize_levels(scalp_analysis)
-        profile = user_profile or {}
+        profile = dict(user_profile or {})
+        allergies = profile.pop("allergies", None)
         # No plan -> all categories: this matches retrieval evaluation more closely.
         if plan is None and report:
             plan = (report.get("product_plan") or {}).get("combo")
@@ -81,10 +82,21 @@ class RecommendationService:
             calls = 1
             prompt_chars = len(prompt)
 
+        # The active index uses its own IDs. Check the ingredient snapshot of the
+        # actual selected record, even when the source catalog has since changed.
+        allergy_items = [
+            {"product_id": c["product_id"], "product_name": c.get("name_clean") or c.get("name"),
+             "ingredients": c.get("ingredients")}
+            for c, _, _ in chosen[:3]
+        ]
+        attach_allergy_to_top3(allergy_items, allergies)
+        allergy_by_id = {str(item["product_id"]): item["allergy_risk"] for item in allergy_items}
+
         results = []
         for rank, (c, score, picked) in enumerate(chosen, 1):
             results.append({
                 "rank": rank, "product_id": c["product_id"],
+                "allergy_risk": allergy_by_id.get(str(c["product_id"])),
                 "product_name": c.get("name_clean") or c.get("name"),
                 "name": c.get("name"), "brand": c.get("brand"),
                 "category": c.get("category"), "category_kr": CATEGORY_KR.get(c.get("category"), c.get("category")),

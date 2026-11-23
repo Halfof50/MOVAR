@@ -15,3 +15,5 @@
 .haircare-message { padding: 24px 0; color: #66798a; font-size: 14px; }
 @media (max-width: 380px) { .haircare-list { grid-template-columns: 1fr; } }
 .haircare-note { margin: 8px 0 0; font-size: .85rem; line-height: 1.5; }
+.haircare-info .allergy-status { font-size: .85rem; color: #465a67; margin: 6px 0; }
+.haircare-info .allergy-warning { padding: 8px; border-radius: 8px; color: #852e23; background: #fff0ec; font-weight: 700; }

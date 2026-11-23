@@ -43,7 +43,8 @@ export default function AppLayout() {
 
       <div className="workspace">
         <header className="header">
-          <span>나의 두피 케어</span>
+          <span className="desktop-heading">나의 두피 케어</span>
+          <Link className="phone-brand" to="/" aria-label="MOVAR 홈">MOVAR</Link>
           <div className="account">
             <span className="account-name">{user ? user.name : '게스트'}</span>
             {user ? <><Link className="account-button" to="/mypage">마이페이지</Link><button type="button" className="account-button account-button-secondary" onClick={signOut} disabled={busy}>{busy ? '로그아웃 중…' : '로그아웃'}</button></> : <><Link className="account-button" to="/login">로그인</Link><Link className="account-button account-button-secondary" to="/signup">회원가입</Link></>}
@@ -55,6 +56,13 @@ export default function AppLayout() {
           <Outlet />
         </main>
       </div>
+      <nav className="phone-nav" aria-label="모바일 주 메뉴">
+        {[...menus, { path: '/hospitals', label: '병원 찾기', icon: '✚' }].map(menu => (
+          <NavLink key={menu.path} to={menu.path} end>
+            <span aria-hidden="true">{menu.icon}</span>{menu.label}
+          </NavLink>
+        ))}
+      </nav>
     </div>
   )
 }

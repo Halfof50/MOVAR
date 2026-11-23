@@ -1,0 +1,53 @@
+.phone-brand, .phone-nav, .phone-camera-actions { display: none; }
+
+@media (max-width: 767px) {
+  html { scrollbar-width: none; }
+  html::-webkit-scrollbar { display: none; }
+  .app-shell .sidebar, .desktop-heading { display: none; }
+  .phone-brand {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    color: #254239;
+    font-size: 1.3rem;
+    font-weight: 850;
+    letter-spacing: .04em;
+  }
+  .app-shell .header { background: white; padding: 8px 14px; }
+  .header .account { gap: 6px; }
+  .header .account-name { max-width: 6em; }
+  .account-button { padding-inline: 9px; }
+  .phone-nav {
+    position: fixed;
+    z-index: 10;
+    inset: auto 0 0;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    padding: 4px 6px calc(4px + env(safe-area-inset-bottom));
+    background: white;
+    border-top: 1px solid #d8e3df;
+  }
+  .phone-nav a {
+    min-height: 50px;
+    display: grid;
+    align-content: center;
+    justify-items: center;
+    border-radius: 10px;
+    color: #526780;
+    font-size: .75rem;
+    font-weight: 650;
+  }
+  .phone-nav a span { font-size: 1.25rem; line-height: 1.25; }
+  .phone-nav a.active { background: #eaf5de; color: #28481c; }
+  .app-shell .main { padding: 18px 14px calc(80px + env(safe-area-inset-bottom)); }
+  .dashboard-grid { grid-template-columns: minmax(0, 1fr); }
+  .haircare-list { grid-template-columns: minmax(0, 1fr); }
+  .haircare-image { height: 120px; }
+  .stack, .capture-grid { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .capture-card { min-height: auto; padding: 22px; }
+  .live-camera:not(.show-device) { display: none; }
+  .live-camera { order: 1; }
+  .phone-camera-actions { display: grid; gap: 8px; margin-top: 12px; }
+  .question-options label { min-height: 44px; }
+  .capture-page input, .capture-page select { font-size: 1rem; }
+}

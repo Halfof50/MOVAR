@@ -15,6 +15,7 @@ export type Category = 'shampoo' | 'scaler' | 'treatment' | 'tonic'
 export const CATEGORY_LABELS: Record<Category, string> = { shampoo: '샴푸', scaler: '스케일러', treatment: '트리트먼트', tonic: '토닉' }
 
 export type RecommendedProduct = {
+  allergy_risk?: boolean | null
   rank: number; product_id: number; product_name: string; brand: string | null
   category: string | null; category_kr: string | null; price: number | null; rating: number | null
   reviews: number | null; image: string | null; link: string | null; volume: string | null

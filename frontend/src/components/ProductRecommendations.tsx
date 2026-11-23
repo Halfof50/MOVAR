@@ -24,6 +24,11 @@ export function ProductList({ products }: { products: HaircareProduct[] }) {
           <div className="haircare-info">
             {product.brand && <span className="haircare-brand">{product.brand}</span>}
             <h3 className="haircare-name">{product.name}</h3>
+            <p className={product.allergyRisk === true ? 'allergy-status allergy-warning' : 'allergy-status'}>
+              {product.allergyRisk === true ? '주의 · 입력한 알레르기와 관련된 성분이 감지됐어요.'
+                : product.allergyRisk === false ? '입력한 알레르기와 관련된 성분이 감지되지 않았어요. 사용 전 전성분을 확인해주세요.'
+                : '알레르기 판정 정보가 없어요. 사용 전 전성분을 확인해주세요.'}
+            </p>
             <strong>{product.price === null ? '가격 정보 없음' : `${product.price.toLocaleString('ko-KR')}원`}</strong>
             {product.note && <p className="haircare-note">{product.note}</p>}
             {/^https?:\/\//i.test(product.productUrl) && <a href={product.productUrl} target="_blank" rel="noopener noreferrer" aria-label={`${product.name} 상품 보기 (새 창)`}>상품 보기 ↗</a>}

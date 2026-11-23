@@ -45,4 +45,5 @@
 .question-options { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 6px; }
 .question-options label { font-weight: 400; display: flex; align-items: center; gap: 6px; }
 .questionnaire { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; }
+.question input[type="text"], .question input#allergies { width: 100%; padding: 10px; border: 1px solid #cbd8e2; border-radius: 10px; }
 @media (max-width: 800px) { .questionnaire { grid-template-columns: 1fr; } }
