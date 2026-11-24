@@ -18,6 +18,7 @@ from contextlib import asynccontextmanager, nullcontext
 from pathlib import Path
 from typing import Any
 
+import cv2
 import numpy as np
 import torch
 from fastapi import FastAPI, File, HTTPException, Response, UploadFile
@@ -43,6 +44,8 @@ SYMPTOM_NAMES = (
     "탈모",
 )
 MODEL_VERSION = "MOVAR-EUPE-V7-512"
+
+from .image_validation import ERROR_MESSAGE, ValidationConfig, validate_image
 
 # These imports use the existing, tested MOVAR project source code.
 from src.models.movar_eupe import MOVAREUPE  # noqa: E402
@@ -244,14 +247,18 @@ def predict(response: Response, file: UploadFile = File(...)) -> dict[str, Any]:
             width, height = image.size
             if width * height > MAX_IMAGE_PIXELS:
                 raise HTTPException(status_code=413, detail="이미지 해상도가 너무 큽니다.")
-            if min(width, height) < 64:
-                raise HTTPException(status_code=400, detail="이미지가 너무 작습니다.")
+            if min(width, height) < ValidationConfig().min_short_side:
+                raise HTTPException(status_code=400, detail=ERROR_MESSAGE)
             # Same conversion as the V7 validation dataset. Images are not stored.
             rgb_image = np.asarray(image.convert("RGB"))
     except HTTPException:
         raise
     except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError):
         raise HTTPException(status_code=400, detail="이미지 파일을 해석할 수 없습니다.")
+
+    quality = validate_image(cv2.cvtColor(rgb_image, cv2.COLOR_RGB2BGR))
+    if not quality["passed"]:
+        raise HTTPException(status_code=400, detail=quality["message"])
 
     engine: InferenceEngine = app.state.engine
     start = time.perf_counter()
