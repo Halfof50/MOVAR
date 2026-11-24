@@ -61,7 +61,8 @@ class AllergyService:
             self._catalog_mtime_ns = stat.st_mtime_ns
         return self._catalog
 
-    def assess(self, top3: list[dict[str, Any]], allergies: list[str] | str | None) -> dict[str, bool | None]:
+    def assess(self, top3: list[dict[str, Any]], allergies: list[str] | str | None,
+               matches_out: dict[str, list[dict[str, str]]] | None = None) -> dict[str, bool | None]:
         """TOP3에서 상품 ID만 추출, 기존 CSV 전성분 조회, 판별 결과만 반환.
 
         오류/불확실을 절대 false로 대체하지 않는다. 실패 시 null로 반환한다.
@@ -90,6 +91,22 @@ class AllergyService:
                                  "product_name": str(src.get("name_clean") or src.get("name") or src.get("product_name") or ""),
                                  "ingredients": ingredients})
             context, diagnostic = make_context(self.kb, user_allergies, products)
+            # 이미 RAG가 찾은 '명시된_관련원료'만 보관한다. Qwen에게 성분명 생성을 요구하지 않는다.
+            # 불확실한 출처불명_원료는 원인 성분 목록으로 확정해 표시하지 않는다.
+            if matches_out is not None:
+                for item in context.get("알레르기별_검색결과", []):
+                    user_allergy = item.get("사용자_입력", "")
+                    for match_product in item.get("상품별_원료관련성_표기", []):
+                        pid = str(match_product["product_id"])
+                        for hit in match_product.get("명시된_관련원료", []):
+                            entry = {
+                                "user_allergy": user_allergy,
+                                "ingredient": hit["성분"],
+                                "relation": hit["관계"],
+                            }
+                            bucket = matches_out.setdefault(pid, [])
+                            if entry not in bucket:
+                                bucket.append(entry)
             # 알레르기명 자체가 DB에서 전혀 검증되지 않은 경우에는 안전을 암시할 수 있는 false를 방지.
             if all(v["status"] != "exact" for v in diagnostic.values()):
                 logger.warning("알레르기 DB 미등록 입력: %s", user_allergies)
@@ -111,20 +128,24 @@ def get_allergy_service() -> AllergyService:
 
 def attach_allergy_to_top3(top3: list[dict[str, Any]], allergies: list[str] | str | None,
                            service: AllergyService | None = None) -> list[dict[str, Any]]:
-    """기존 추천 순위/상품 선정은 변경하지 않고 allergy_risk만 추가한다.
+    """기존 추천 순위/상품 선정은 변경하지 않고 알레르기 판별값과 RAG 성분 근거만 추가한다.
 
     호출 위치: LLM의 TOP3 최종 확정 후, 상품 부가정보 결합 전.
     """
     if not top3:
         return top3
+    matches: dict[str, list[dict[str, str]]] = {}
     if not allergies:
         risks = {str(rec["product_id"]): None for rec in top3}
     else:
         try:
-            risks = (service or get_allergy_service()).assess(top3, allergies)
+            risks = (service or get_allergy_service()).assess(top3, allergies, matches_out=matches)
         except Exception as exc:
             logger.warning("알레르기 서비스 초기화 실패: %s", exc)
             risks = {str(rec["product_id"]): None for rec in top3}
     for rec in top3:
-        rec["allergy_risk"] = risks.get(str(rec["product_id"]))
+        pid = str(rec["product_id"])
+        rec["allergy_risk"] = risks.get(pid)
+        # true와 함께 실제로 검색된 성분만 표시. false/null에는 원인 성분을 단정하지 않음.
+        rec["allergy_matches"] = matches.get(pid, []) if rec["allergy_risk"] is True else []
     return top3
