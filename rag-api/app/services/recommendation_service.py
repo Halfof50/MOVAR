@@ -84,12 +84,14 @@ class RecommendationService:
         allergy_items = [{"product_id": c["product_id"]} for c, _, _ in chosen[:3]]
         attach_allergy_to_top3(allergy_items, profile.get("allergies"))
         allergy_by_id = {str(item["product_id"]): item["allergy_risk"] for item in allergy_items}
+        allergy_matches_by_id = {str(item["product_id"]): item.get("allergy_matches", []) for item in allergy_items}
 
         results = []
         for rank, (c, score, picked) in enumerate(chosen, 1):
             results.append({
                 "rank": rank, "product_id": c["product_id"],
                 "allergy_risk": allergy_by_id.get(str(c["product_id"])),
+                "allergy_matches": allergy_matches_by_id.get(str(c["product_id"]), []),
                 "product_name": c.get("name_clean") or c.get("name"),
                 "name": c.get("name"), "brand": c.get("brand"),
                 "category": c.get("category"), "category_kr": CATEGORY_KR.get(c.get("category"), c.get("category")),
