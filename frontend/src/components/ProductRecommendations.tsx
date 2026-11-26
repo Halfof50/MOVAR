@@ -25,7 +25,9 @@ export function ProductList({ products }: { products: HaircareProduct[] }) {
             {product.brand && <span className="haircare-brand">{product.brand}</span>}
             <h3 className="haircare-name">{product.name}</h3>
             <p className={product.allergyRisk === true ? 'allergy-status allergy-warning' : 'allergy-status'}>
-              {product.allergyRisk === true ? '주의 · 입력한 알레르기와 관련된 성분이 감지됐어요.'
+              {product.allergyRisk === true ? (product.matchedAllergies
+                ? `주의 · 입력한 ${product.matchedAllergies} 성분이 감지됐어요.`
+                : '주의 · 입력한 알레르기와 관련된 성분이 감지됐어요.')
                 : product.allergyRisk === false ? '입력한 알레르기와 관련된 성분이 감지되지 않았어요. 사용 전 전성분을 확인해주세요.'
                 : '알레르기 판정 정보가 없어요. 사용 전 전성분을 확인해주세요.'}
             </p>

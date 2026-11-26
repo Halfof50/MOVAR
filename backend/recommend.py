@@ -53,7 +53,14 @@ class RecommendRequest(BaseModel):
 
 # ---- response ---------------------------------------------------------------
 
+class AllergyMatch(BaseModel):
+    user_allergy: str
+    ingredient: str
+    relation: str
+
+
 class RecommendedProduct(BaseModel):
+    allergy_matches: list[AllergyMatch] = Field(default_factory=list)
     allergy_risk: bool | None = None
     rank: int
     product_id: int

@@ -3,6 +3,7 @@ import type { AnalysisView, RecommendedProduct } from './api'
 
 export interface HaircareProduct {
   allergyRisk?: boolean | null
+  matchedAllergies?: string
   id: string
   name: string
   brand: string
@@ -16,6 +17,8 @@ export interface HaircareProduct {
 export function toHaircareProduct(product: RecommendedProduct, note?: string): HaircareProduct {
   return {
     allergyRisk: product.allergy_risk,
+    matchedAllergies: [...new Set((product.allergy_matches ?? [])
+      .map(match => match.user_allergy.trim()).filter(Boolean))].join(', '),
     id: String(product.product_id), name: product.product_name, brand: product.brand ?? '',
     price: product.price, imageUrl: product.image ?? '', productUrl: product.link ?? '',
     note: note || product.reason || undefined,

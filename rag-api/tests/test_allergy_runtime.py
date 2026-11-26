@@ -33,6 +33,10 @@ class AllergyIntegrationTests(unittest.TestCase):
         attach_allergy_to_top3(top3,['리날룰'],self.service)
         self.assertEqual([r['rank'] for r in top3],[1,2,3])
         self.assertEqual([r['allergy_risk'] for r in top3],[True,False,False])
+        self.assertEqual(top3[0]['allergy_matches'], [
+            {'user_allergy': '리날룰', 'ingredient': '리날룰', 'relation': '직접 동일 성분'}
+        ])
+        self.assertEqual(top3[1]['allergy_matches'], [])
         self.assertEqual(self.fake.calls,1)
     def test_skip_when_no_allergies(self):
         top3=[{'product_id':'101'}]

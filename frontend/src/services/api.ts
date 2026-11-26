@@ -16,6 +16,7 @@ export const CATEGORY_LABELS: Record<Category, string> = { shampoo: '샴푸', sc
 
 export type RecommendedProduct = {
   allergy_risk?: boolean | null
+  allergy_matches?: { user_allergy: string; ingredient: string; relation: string }[] | null
   rank: number; product_id: number; product_name: string; brand: string | null
   category: string | null; category_kr: string | null; price: number | null; rating: number | null
   reviews: number | null; image: string | null; link: string | null; volume: string | null

@@ -61,7 +61,8 @@ class AllergyService:
             self._catalog_mtime_ns = stat.st_mtime_ns
         return self._catalog
 
-    def assess(self, top3: list[dict[str, Any]], allergies: list[str] | str | None) -> dict[str, bool | None]:
+    def assess(self, top3: list[dict[str, Any]], allergies: list[str] | str | None,
+               matches_by_id: dict[str, list[dict]] | None = None) -> dict[str, bool | None]:
         """TOP3에서 상품 ID만 추출, 기존 CSV 전성분 조회, 판별 결과만 반환.
 
         오류/불확실을 절대 false로 대체하지 않는다. 실패 시 null로 반환한다.
@@ -96,6 +97,15 @@ class AllergyService:
             result = self.client.predict(user_allergies, products, context)
             # LLM 반환값은 검증한 JSON true/false/null만 허용.
             all_known = all(v["status"] == "exact" for v in diagnostic.values())
+            if matches_by_id is not None:
+                for item in context["알레르기별_검색결과"]:
+                    for product in item["상품별_원료관련성_표기"]:
+                        pid = str(product["product_id"])
+                        if result[pid] is True:
+                            matches_by_id.setdefault(pid, []).extend(
+                                {"user_allergy": item["사용자_입력"], "ingredient": hit["성분"], "relation": hit["관계"]}
+                                for hit in product["명시된_관련원료"]
+                            )
             return {pid: None if result[pid] is False and not all_known else result[pid] for pid in ids}
         except Exception as exc:
             logger.warning("알레르기 판별 보류(추천 결과는 유지): %s: %s", type(exc).__name__, exc)
@@ -117,14 +127,16 @@ def attach_allergy_to_top3(top3: list[dict[str, Any]], allergies: list[str] | st
     """
     if not top3:
         return top3
+    matches_by_id = {}
     if not allergies:
         risks = {str(rec["product_id"]): None for rec in top3}
     else:
         try:
-            risks = (service or get_allergy_service()).assess(top3, allergies)
+            risks = (service or get_allergy_service()).assess(top3, allergies, matches_by_id)
         except Exception as exc:
             logger.warning("알레르기 서비스 초기화 실패: %s", exc)
             risks = {str(rec["product_id"]): None for rec in top3}
     for rec in top3:
         rec["allergy_risk"] = risks.get(str(rec["product_id"]))
+        rec["allergy_matches"] = matches_by_id.get(str(rec["product_id"]), []) if rec["allergy_risk"] is True else []
     return top3
